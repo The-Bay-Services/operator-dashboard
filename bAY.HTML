@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Bay Services - Operator Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-geosearch@3.11.0/dist/geosearch.css" />
+    <script src="https://unpkg.com/leaflet-geosearch@3.11.0/dist/geosearch.umd.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
+        
+        :root {
+            --primary-color: #424874;
+            --secondary-color: #7EB2DD;
+            --accent-color: #90AFC5;
+            --light-gray: #CACFD6;
+            --white: #FFFFFF;
+            --primary-gradient: linear-gradient(135deg, #7EB2DD 0%, #90AFC5 100%);
+            --secondary-gradient: linear-gradient(135deg, #424874 0%, #7EB2DD 100%);
+            --success-gradient: linear-gradient(135deg, #7EB2DD 0%, #90AFC5 100%);
+            --warning-gradient: linear-gradient(135deg, #90AFC5 0%, #CACFD6 100%);
+            --danger-gradient: linear-gradient(135deg, #424874 0%, #7EB2DD 100%);
+            --glass-bg: rgba(255, 255, 255, 0.95);
+            --glass-border: rgba(126, 178, 221, 0.2);
+        }
+        
+        * { box-sizing: border-box; }
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background: var(--white);
+            color: var(--primary-color);
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+        }
+        .main-container {
+            background: var(--white);
+            border: 1px solid var(--light-gray);
+            box-shadow: 0 8px 32px rgba(66, 72, 116, 0.1);
+        }
+        
+        .header-section {
+            background: var(--secondary-gradient);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .header-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="50" cy="10" r="0.5" fill="rgba(255,255,255,0.1)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+            opacity: 0.2;
+        }
+        
+        .logo-container {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .logo-img {
+            height: 80px;
+            width: auto;
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
+            object-fit: contain;
+        }
+        
+        .nav-section {
+            background: var(--white);
+            border-bottom: 2px solid var(--light-gray);
+        }
+        
+        .tab-button {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 12px;
+            font-weight: 500;
+        }
+        
+        .tab-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: var(--primary-gradient);
+            transition: left 0.3s ease;
+            z-index: -1;
+        }
+        
+        .tab-button:hover::before {
+            left: 0;
+        }
+        
+        .tab-button:hover {
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(126, 178, 221, 0.3);
+        }
+        
+        .tab-button.active {
+            background: var(--primary-gradient);
+            color: white;
+            box-shadow: 0 8px 25px rgba(126, 178, 221, 0.4);
+            transform: translateY(-2px);
+        }
+        .content-section { display: none; }
+        .content-section.active { display: block; }
+        #map { height: 600px; border-radius: 0.5rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); }
+        .leaflet-container { z-index: 0; }
+        .fade-in { animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .table-container { max-height: 65vh; overflow-y: auto; }
+        .table-auto th { position: sticky; top: 0; background-color: #e5e7eb; z-index: 10;}
+        .table-auto th, .table-auto td { text-align: left; padding: 12px 15px; white-space: nowrap; }
+        /* Style for sortable table headers */
+        .sortable { cursor: pointer; user-select: none; }
+        .sortable:hover { background-color: #d1d5db; }
+        .sortable::after { content: ''; display: inline-block; margin-left: 5px; opacity: 0.5; }
+        .sortable.asc::after { content: '▲'; }
+        .sortable.desc::after { content: '▼'; }
+        .copy-button:active, .action-button:active { transform: scale(0.95); }
+        .notification { 
+            position: fixed; 
+            bottom: 30px; 
+            right: 30px; 
+            background: var(--success-gradient);
+            color: white; 
+            padding: 16px 24px; 
+            border-radius: 15px; 
+            z-index: 1050; 
+            opacity: 0; 
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 10px 30px rgba(79, 172, 254, 0.3);
+            backdrop-filter: blur(10px);
+        }
+        
+        .notification.show { 
+            opacity: 1;
+            transform: translateX(0);
+        }
+        .modal-backdrop { 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            right: 0; 
+            bottom: 0; 
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(5px);
+            z-index: 1040; 
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .modal { 
+            position: fixed; 
+            top: 50%; 
+            left: 50%; 
+            transform: translate(-50%, -50%); 
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            padding: 2rem; 
+            border-radius: 20px; 
+            z-index: 1050; 
+            width: 90%; 
+            max-width: 600px; 
+            display: none; 
+            max-height: 90vh; 
+            overflow-y: auto;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .search-input {
+            background: var(--white);
+            border: 2px solid var(--light-gray);
+            border-radius: 8px;
+            padding: 12px 16px;
+            transition: all 0.3s ease;
+            color: var(--primary-color);
+        }
+        
+        .search-input:focus {
+            border-color: var(--secondary-color);
+            box-shadow: 0 0 0 3px rgba(126, 178, 221, 0.1);
+            outline: none;
+        }
+        
+        .time-display {
+            background: var(--secondary-gradient);
+            color: white;
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            box-shadow: 0 8px 24px rgba(126, 178, 221, 0.3);
+        }
+        
+        .alert-warning {
+            background: linear-gradient(135deg, #90AFC5 0%, #CACFD6 100%);
+            color: var(--primary-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 16px rgba(144, 175, 197, 0.2);
+        }
+        
+        .service-card {
+            background: var(--white);
+            border: 1px solid var(--light-gray);
+            border-radius: 8px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 16px rgba(66, 72, 116, 0.1);
+        }
+        
+        .service-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(126, 178, 221, 0.2);
+            border-color: var(--secondary-color);
+        }
+        
+        .template-card {
+            background: var(--white);
+            border: 1px solid var(--light-gray);
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 16px rgba(66, 72, 116, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .template-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(126, 178, 221, 0.2);
+            border-color: var(--secondary-color);
+        }
+        
+        .btn-primary {
+            background: var(--primary-gradient);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(126, 178, 221, 0.3);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(126, 178, 221, 0.4);
+        }
+        
+        .btn-success {
+            background: var(--success-gradient);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(79, 172, 254, 0.3);
+        }
+        
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(79, 172, 254, 0.4);
+        }
+        
+        .btn-danger {
+            background: var(--danger-gradient);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(250, 112, 154, 0.3);
+        }
+        
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(250, 112, 154, 0.4);
+        }
+        
+        .service-btn {
+            background: var(--light-gray);
+            color: var(--primary-color);
+            border: 2px solid transparent;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 12px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .service-btn:hover {
+            background: var(--secondary-color);
+            color: white;
+            transform: translateY(-1px);
+        }
+        
+        .service-btn.active {
+            background: var(--primary-gradient);
+            color: white;
+            border-color: var(--secondary-color);
+            box-shadow: 0 4px 15px rgba(126, 178, 221, 0.3);
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto main-container rounded-xl">
+        <header class="p-6 header-section rounded-t-xl">
+            <div class="logo-container">
+                <img src="bay-services-logo.png" alt="Bay Services Logo" class="logo-img">
+            <div>
+                    <h1 class="text-4xl font-bold text-white" style="font-family: 'Poppins', sans-serif;">The Bay Services</h1>
+                    <p class="text-lg text-white opacity-90 mt-1">Operator Dashboard</p>
+                </div>
+            </div>
+        </header>
+
+        <!-- NEW TAB ORDER -->
+        <nav class="p-6 nav-section">
+            <div class="flex flex-wrap items-center gap-3">
+                <button onclick="showTab('dashboard')" class="tab-button active text-sm font-medium px-6 py-3 text-gray-600 rounded-xl transition-all">Dashboard</button>
+                <button onclick="showTab('schedules')" class="tab-button text-sm font-medium px-6 py-3 text-gray-600 rounded-xl transition-all">Schedules</button>
+                <button onclick="showTab('property-management')" class="tab-button text-sm font-medium px-6 py-3 text-gray-600 rounded-xl transition-all">Property Management</button>
+                <button onclick="showTab('payments')" class="tab-button text-sm font-medium px-6 py-3 text-gray-600 rounded-xl transition-all">Payments</button>
+                <button onclick="showTab('templates')" class="tab-button text-sm font-medium px-6 py-3 text-gray-600 rounded-xl transition-all">Templates</button>
+                <button onclick="showTab('info')" class="tab-button text-sm font-medium px-6 py-3 text-gray-600 rounded-xl transition-all">Service Info</button>
+                <button onclick="showTab('services')" class="tab-button text-sm font-medium px-6 py-3 text-gray-600 rounded-xl transition-all">Services & Prices</button>
+                <button onclick="showTab('map')" class="tab-button text-sm font-medium px-6 py-3 text-gray-600 rounded-xl transition-all">Map</button>
+                <button onclick="showTab('browsers')" class="tab-button text-sm font-medium px-6 py-3 text-gray-600 rounded-xl transition-all">Dual Browsers</button>
+            </div>
+        </nav>
+
+        <main class="p-6">
+            <div id="dashboard" class="content-section active fade-in">
+                <h2 class="text-3xl font-bold mb-6" style="font-family: 'Poppins', sans-serif; color: var(--primary-color);">Welcome!</h2>
+                <div id="california-time" class="time-display mb-8"></div>
+                <div class="p-6 mb-6 alert-warning" role="alert">
+                  <span class="font-semibold">Important Note:</span> Any changes you make (edits, additions, deletions) are temporary and will be lost when you reload the page. This is a single-file application without a database.
+                </div>
+                <p class="text-lg" style="color: var(--primary-color);">This is your operator dashboard. Use the tabs above to navigate.</p>
+            </div>
+
+            <!-- SCHEDULES: Vertical Layout -->
+            <div id="schedules" class="content-section fade-in">
+                <h2 class="text-3xl font-bold mb-6" style="font-family: 'Poppins', sans-serif; color: var(--primary-color);">Work Schedule</h2>
+                <div class="grid grid-cols-1 gap-8">
+                    <div>
+                        <h3 class="text-xl font-semibold mb-3" style="color: var(--secondary-color);">Dispatching Schedule</h3>
+                        <div id="dispatching-schedule" class="overflow-x-auto rounded-lg border"></div>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-semibold mb-3" style="color: var(--secondary-color);">Management Schedule</h3>
+                        <div id="management-schedule" class="overflow-x-auto rounded-lg border"></div>
+                    </div>
+                </div>
+                 <div class="mt-4 text-right">
+                    <button onclick="saveSchedules()" class="btn-primary">Save Schedule Changes</button>
+                </div>
+            </div>
+            
+            <div id="property-management" class="content-section fade-in">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-3xl font-bold" style="font-family: 'Poppins', sans-serif; color: var(--primary-color);">Property Management List</h2>
+                    <button onclick="openAddModal('propertyManagement')" class="btn-success">Add New PM</button>
+                </div>
+                <input type="text" id="pm-search" placeholder="Search companies..." class="w-full search-input mb-6">
+                <div id="property-management-table" class="table-container rounded-lg border"></div>
+            </div>
+            
+            <!-- PAYMENTS: Sorting, Totals, and Dollar Symbol added -->
+            <div id="payments" class="content-section fade-in">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-3xl font-bold" style="font-family: 'Poppins', sans-serif; color: var(--primary-color);">Outstanding Payment List</h2>
+                    <button onclick="openAddModal('outstandingPayments')" class="btn-success">Add New Payment</button>
+                </div>
+                <input type="text" id="op-search" placeholder="Search customers..." class="w-full search-input mb-6">
+                <div id="outstanding-payments-table" class="table-container rounded-lg border"></div>
+                <div id="outstanding-payments-total" class="mt-4 text-right font-bold text-lg text-gray-700"></div>
+            </div>
+
+            <!-- TEMPLATES: Made bigger -->
+            <div id="templates" class="content-section fade-in">
+                <h2 class="text-3xl font-bold mb-6" style="font-family: 'Poppins', sans-serif; color: var(--primary-color);">Automatic Answer Templates</h2>
+                <div id="auto-answers" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+            </div>
+
+            <!-- SERVICE INFO: Now a grid of clickable cards -->
+            <div id="info" class="content-section fade-in">
+                 <h2 class="text-3xl font-bold mb-6" style="font-family: 'Poppins', sans-serif; color: var(--primary-color);">Service Information</h2>
+                 <p class="mb-4" style="color: var(--primary-color);">Click on a service to view its full details and recommendations.</p>
+                 <div id="service-info-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                 </div>
+            </div>
+            
+            <div id="services" class="content-section fade-in">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-3xl font-bold" style="font-family: 'Poppins', sans-serif; color: var(--primary-color);">Services & Prices</h2>
+                    <button onclick="openAddModal('services')" class="btn-success">Add New Service</button>
+                </div>
+                <input type="text" id="services-search" placeholder="Search services..." class="w-full search-input mb-6">
+                <div id="services-prices" class="table-container rounded-lg border"></div>
+            </div>
+
+            <div id="map-section" class="content-section fade-in">
+                 <h2 class="text-3xl font-bold mb-6" style="font-family: 'Poppins', sans-serif; color: var(--primary-color);">California Map</h2>
+                 <p class="mb-4" style="color: var(--primary-color);">Use the search bar on the map to find addresses.</p>
+                 <div id="map"></div>
+            </div>
+
+            <!-- SIMPLE DUAL BROWSERS SECTION -->
+            <div id="browsers" class="content-section fade-in">
+                <h2 class="text-3xl font-bold mb-6" style="font-family: 'Poppins', sans-serif; color: var(--primary-color);">Dual Browsers</h2>
+                <p class="mb-6" style="color: var(--primary-color);">Two separate browser windows with quick access to all your platforms.</p>
+                
+                <!-- Info Message -->
+                <div class="card p-4 mb-4 bg-green-50 border-l-4 border-green-500">
+                    <div class="flex items-center">
+                        <div class="text-green-500 mr-3">✅</div>
+                        <div>
+                            <p class="text-sm text-green-800">
+                                <strong>Platform buttons open directly in the browsers below.</strong> 
+                                Click any platform button to navigate instantly within the embedded browser.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Two Browser Windows -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+                    <!-- Left Browser -->
+                    <div class="card p-0 overflow-hidden" style="height: 80vh;">
+                        <!-- Browser Header -->
+                        <div class="bg-gradient-to-r from-blue-500 to-blue-600 p-3 text-white">
+                            <div class="flex items-center justify-between mb-2">
+                                <h3 class="font-semibold">Browser 1 - Account 1</h3>
+                                <div class="flex gap-2">
+                                    <button onclick="refreshBrowser1()" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-2 py-1 rounded text-xs">↻</button>
+                                    <button onclick="goBackBrowser1()" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-2 py-1 rounded text-xs">←</button>
+                                    <button onclick="goForwardBrowser1()" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-2 py-1 rounded text-xs">→</button>
+                                </div>
+                            </div>
+                            <!-- URL Bar -->
+                            <div class="flex items-center gap-2">
+                                <input type="text" id="urlInput1" placeholder="Enter URL..." class="flex-1 px-2 py-1 rounded text-sm text-gray-800" onkeypress="handleUrlInput1(event)" value="https://accounts.google.com/signin">
+                                <button onclick="navigateBrowser1()" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-2 py-1 rounded text-xs">Go</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Platform Buttons -->
+                        <div class="p-3 bg-gray-50 border-b">
+                            <div class="grid grid-cols-4 gap-2 mb-2">
+                                <button onclick="openPlatform(1, 'gmail')" class="platform-btn bg-red-500 hover:bg-red-600 text-white text-xs py-2 px-2 rounded">Gmail</button>
+                                <button onclick="openPlatform(1, 'housecall')" class="platform-btn bg-blue-500 hover:bg-blue-600 text-white text-xs py-2 px-2 rounded">House Call Pro</button>
+                                <button onclick="openPlatform(1, 'yelp')" class="platform-btn bg-red-600 hover:bg-red-700 text-white text-xs py-2 px-2 rounded">Yelp</button>
+                                <button onclick="openPlatform(1, 'thumbtack')" class="platform-btn bg-green-500 hover:bg-green-600 text-white text-xs py-2 px-2 rounded">Thumbtack</button>
+                            </div>
+                            <div class="text-center">
+                                <button onclick="openPlatformInNewWindow(1, 'gmail')" class="text-xs text-gray-600 hover:text-blue-600 underline">Open Gmail in New Window</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Browser Content -->
+                        <iframe id="browser1" src="https://accounts.google.com/signin" class="w-full h-full border-0" style="height: calc(100% - 120px);"></iframe>
+                    </div>
+
+                    <!-- Right Browser -->
+                    <div class="card p-0 overflow-hidden" style="height: 80vh;">
+                        <!-- Browser Header -->
+                        <div class="bg-gradient-to-r from-green-500 to-green-600 p-3 text-white">
+                            <div class="flex items-center justify-between mb-2">
+                                <h3 class="font-semibold">Browser 2 - Account 2</h3>
+                                <div class="flex gap-2">
+                                    <button onclick="refreshBrowser2()" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-2 py-1 rounded text-xs">↻</button>
+                                    <button onclick="goBackBrowser2()" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-2 py-1 rounded text-xs">←</button>
+                                    <button onclick="goForwardBrowser2()" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-2 py-1 rounded text-xs">→</button>
+                                </div>
+                            </div>
+                            <!-- URL Bar -->
+                            <div class="flex items-center gap-2">
+                                <input type="text" id="urlInput2" placeholder="Enter URL..." class="flex-1 px-2 py-1 rounded text-sm text-gray-800" onkeypress="handleUrlInput2(event)" value="https://accounts.google.com/signin">
+                                <button onclick="navigateBrowser2()" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-2 py-1 rounded text-xs">Go</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Platform Buttons -->
+                        <div class="p-3 bg-gray-50 border-b">
+                            <div class="grid grid-cols-4 gap-2 mb-2">
+                                <button onclick="openPlatform(2, 'gmail')" class="platform-btn bg-red-500 hover:bg-red-600 text-white text-xs py-2 px-2 rounded">Gmail</button>
+                                <button onclick="openPlatform(2, 'housecall')" class="platform-btn bg-blue-500 hover:bg-blue-600 text-white text-xs py-2 px-2 rounded">House Call Pro</button>
+                                <button onclick="openPlatform(2, 'yelp')" class="platform-btn bg-red-600 hover:bg-red-700 text-white text-xs py-2 px-2 rounded">Yelp</button>
+                                <button onclick="openPlatform(2, 'thumbtack')" class="platform-btn bg-green-500 hover:bg-green-600 text-white text-xs py-2 px-2 rounded">Thumbtack</button>
+                            </div>
+                            <div class="text-center">
+                                <button onclick="openPlatformInNewWindow(2, 'gmail')" class="text-xs text-gray-600 hover:text-green-600 underline">Open Gmail in New Window</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Browser Content -->
+                        <iframe id="browser2" src="https://accounts.google.com/signin" class="w-full h-full border-0" style="height: calc(100% - 120px);"></iframe>
+                    </div>
+                </div>
+
+                <!-- Monitoring & Notifications -->
+                <div class="card p-6">
+                    <h3 class="text-xl font-semibold mb-4" style="color: var(--secondary-color);">Service Monitoring & Notifications</h3>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Left Account Status -->
+                        <div class="p-4 bg-blue-50 rounded-lg">
+                            <h4 class="font-semibold mb-3" style="color: var(--primary-color);">Account 1 Status</h4>
+                            <div class="space-y-2">
+                                <div class="flex justify-between">
+                                    <span class="text-sm">New Requests:</span>
+                                    <span id="account1-requests" class="bg-red-500 text-white px-2 py-1 rounded-full text-xs font-bold">0</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm">Last Check:</span>
+                                    <span id="account1-lastcheck" class="text-xs text-gray-600">Never</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm">Status:</span>
+                                    <span class="text-green-600 font-semibold text-sm">Online</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right Account Status -->
+                        <div class="p-4 bg-green-50 rounded-lg">
+                            <h4 class="font-semibold mb-3" style="color: var(--primary-color);">Account 2 Status</h4>
+                            <div class="space-y-2">
+                                <div class="flex justify-between">
+                                    <span class="text-sm">New Requests:</span>
+                                    <span id="account2-requests" class="bg-red-500 text-white px-2 py-1 rounded-full text-xs font-bold">0</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm">Last Check:</span>
+                                    <span id="account2-lastcheck" class="text-xs text-gray-600">Never</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm">Status:</span>
+                                    <span class="text-green-600 font-semibold text-sm">Online</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Monitoring Controls -->
+                    <div class="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <button onclick="startAllMonitoring()" class="btn-success">Start Monitoring</button>
+                        <button onclick="stopAllMonitoring()" class="btn-danger">Stop Monitoring</button>
+                        <button onclick="checkAllServices()" class="btn-primary">Check All Now</button>
+                        <button onclick="openMonitoringSettings()" class="btn-primary">Settings</button>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <div id="notification" class="notification">Text copied!</div>
+    
+    <div id="modal-backdrop" class="modal-backdrop"></div>
+    <div id="edit-modal" class="modal">
+        <h3 id="edit-modal-title" class="text-xl font-bold mb-4">Edit Entry</h3>
+        <div id="edit-modal-body"></div>
+        <div class="mt-6 flex justify-end gap-4">
+            <button onclick="closeModal()" class="bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-md hover:bg-gray-400">Cancel</button>
+            <button id="modal-save-btn" class="bg-blue-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-blue-600">Save</button>
+        </div>
+    </div>
+    
+    <!-- New modal for displaying service info -->
+    <div id="info-modal" class="modal">
+        <h3 id="info-modal-title" class="text-xl font-bold mb-4">Service Details</h3>
+        <div id="info-modal-body" class="text-sm text-gray-600 space-y-2"></div>
+        <div class="mt-6 flex justify-end">
+            <button onclick="closeModal()" class="bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-md hover:bg-gray-400">Close</button>
+        </div>
+    </div>
+
+
+    <script>
+        // --- DATA STORE ---
+        let dataStore = {
+            dispatchingSchedule: [
+                { "Days": "Monday", "Vuqar/David": "8:00-11:00 AM", "Kanan/Kenny": "11:00 AM-1:00 PM", "Nahida/Emma": "1:00-3:00 PM", "Narmina/Nora": "3:00-8:00 PM", "Orxan/Eric": "8:00-10:00PM" },
+                { "Days": "Tuesday", "Vuqar/David": "8:00-11:00 AM", "Kanan/Kenny": "11:00 AM-1:00 PM", "Nahida/Emma": "1:00-3:00 PM", "Narmina/Nora": "3:00-8:00 PM", "Orxan/Eric": "8:00-10:00PM" },
+                { "Days": "Wednesday", "Vuqar/David": "8:00-11:00 AM", "Kanan/Kenny": "11:00 AM-1:00 PM", "Nahida/Emma": "1:00-3:00 PM", "Narmina/Nora": "3:00-8:00 PM", "Orxan/Eric": "8:00-10:00PM" },
+                { "Days": "Thursday", "Vuqar/David": "8:00-11:00 AM", "Kanan/Kenny": "11:00 AM-1:00 PM", "Nahida/Emma": "1:00-3:00 PM", "Narmina/Nora": "3:00-8:00 PM", "Orxan/Eric": "8:00-10:00PM" },
+                { "Days": "Friday", "Vuqar/David": "8:00-11:00 AM", "Kanan/Kenny": "11:00 AM-1:00 PM", "Nahida/Emma": "1:00-3:00 PM", "Narmina/Nora": "3:00-8:00 PM", "Orxan/Eric": "8:00-10:00PM" },
+                { "Days": "Saturday", "Vuqar/David": "OFF", "Kanan/Kenny": "08:00AM-07:00PM", "Nahida/Emma": "OFF", "Narmina/Nora": "OFF", "Orxan/Eric": "OFF" },
+                { "Days": "Sunday", "Vuqar/David": "OFF", "Kanan/Kenny": "OFF", "Nahida/Emma": "08:00AM-07:00PM", "Narmina/Nora": "OFF", "Orxan/Eric": "OFF" }
+            ],
+            managementSchedule: [
+                { "Days": "Monday", "Vuqar/David": "8:00 AM- 12:00 PM", "Nahida/Emma": "12:00-4:00PM" },
+                { "Days": "Tuesday", "Vuqar/David": "8:00 AM- 12:00 PM", "Nahida/Emma": "12:00-4:00PM" },
+                { "Days": "Wednesday", "Vuqar/David": "8:00 AM- 12:00 PM", "Nahida/Emma": "12:00-4:00PM" },
+                { "Days": "Thursday", "Vuqar/David": "8:00 AM- 12:00 PM", "Nahida/Emma": "12:00-4:00PM" },
+                { "Days": "Friday", "Vuqar/David": "8:00 AM- 12:00 PM", "Nahida/Emma": "12:00-4:00PM" },
+                { "Days": "Saturday", "Vuqar/David": "OFF", "Nahida/Emma": "OFF" },
+                { "Days": "Sunday", "Vuqar/David": "OFF", "Nahida/Emma": "OFF" }
+            ],
+            services: [
+                { "Service": "Air Duct", "Type": "Cleaning", "Price": "340", "Note": "Up to 10 vents, after each additional $25" },
+                { "Service": "Dryer vent (side-by-side)", "Type": "Cleaning", "Price": "139", "Note": "" },
+                { "Service": "Dryer vent (stacked)", "Type": "Cleaning", "Price": "199", "Note": "" },
+                { "Service": "Chimney /fireplace", "Type": "Cleaning", "Price": "169", "Note": "" },
+                { "Service": "Kitchen exhaust/range", "Type": "Cleaning", "Price": "$199-$499", "Note": "Depend on the level of the grease" },
+                { "Service": "Bath fan", "Type": "Cleaning", "Price": "49", "Note": "Per each; if 2 services and more price is $39" },
+                { "Service": "Furnace", "Type": "Cleaning", "Price": "75", "Note": "" },
+                { "Service": "Chimeny cap installation", "Type": "Repair", "Price": "149", "Note": "" },
+                { "Service": "Bath fan exhaust", "Type": "Cleaning", "Price": "149", "Note": "" },
+                { "Service": "Cleaning - AC unit (condenser coil)", "Type": "Cleaning", "Price": "199", "Note": "" },
+                { "Service": "Mini Splits", "Type": "Cleaning", "Price": "49", "Note": "per split" }
+            ],
+            propertyManagement: [
+                {"Company":"Agile Appliance","Invoicing Email":"","Phone":"(650) 625-7475","Representative":"","Position":"","Email":"","Phone 2":"","Discount":"","Note":""},
+                {"Company":"Agnes property manager","Invoicing Email":"","Phone":"(408) 921-068","Representative":"","Position":"","Email":"","Phone 2":"","Discount":"","Note":""},
+                {"Company":"AmeFix Home Solutions","Invoicing Email":"vendor.amefix@gmail.com","Phone":"(978) 715-0348","Representative":"Sarah Scarlet","Position":"","Email":"","Phone 2":"","Discount":"","Note":""},
+                {"Company":"Congregation sherith israel","Invoicing Email":"dasazawa@sherithisrael.org","Phone":"(415) 515-2646","Representative":"Benjamin","Position":"","Email":"beskinshapson@sherithisrael.org","Phone 2":"","Discount":"","Note":""},
+                {"Company":"Glen (property management )","Invoicing Email":"rentalpropertysanfrancisco@gmail.com","Phone":"(415) 577-1920","Representative":"Glen","Position":"","Email":"","Phone 2":"","Discount":"","Note":""},
+                {"Company":"HIN Property Management","Invoicing Email":"info@hinmanagement.com","Phone":"(408) 421-8021","Representative":"Mary C","Position":"Operations Manager","Email":"","Phone 2":"","Discount":"","Note":""},
+                {"Company":"Honey Homes","Invoicing Email":"invoices@honeyhomes.com","Phone":"","Representative":"","Position":"","Email":"","Phone 2":"","Discount":"","Note":""},
+                {"Company":"JC property manager","Invoicing Email":"","Phone":"4088298622","Representative":"","Position":"","Email":"","Phone 2":"","Discount":"","Note":""},
+                {"Company":"Jodi Rentals","Invoicing Email":"help@jodirentals.com","Phone":"415-661-3232","Representative":"Ann Ocampo","Position":"","Email":"","Phone 2":"","Discount":"","Note":""},
+                {"Company":"Just 1 Networks Property","Invoicing Email":"admin1@just1network.com","Phone":"(209) 879-1225","Representative":"Leonid","Position":"","Email":"","Phone 2":"(209) 879-1225","Discount":"","Note":""},
+                {"Company":"Marples Property Management","Invoicing Email":"accounting@marplesteam.com","Phone":"(510) 491-8610","Representative":"Angie Mendoza","Position":"","Email":"angie@marplesteam.com","Phone 2":"","Discount":"","Note":""},
+                {"Company":"Property Management Silicon Valley","Invoicing Email":"maintenance@pmsv.com","Phone":"(408) 441-8400","Representative":"","Position":"","Email":"","Phone 2":"","Discount":"","Note":""},
+                {"Company":"Zen Real Estate Group","Invoicing Email":"accounts@cerdazein.com","Phone":"(408) 712-5419","Representative":"Don Arias","Position":"","Email":"don@cerdazein.com","Phone 2":"(510) 239-5636","Discount":"","Note":""},
+                {"Company":"Coast Construction Company","Invoicing Email":"Jessica@coastconstruction.net","Phone":"","Representative":"Jessica Gorman","Position":"General Manager","Email":"invoices@coastconstruction.net","Phone 2":"(510) 301-9162","Discount":"","Note":""},
+                {"Company":"Wen Guo Real Estate Group","Invoicing Email":"","Phone":"","Representative":"Jennifer Zhang","Position":"Realtor","Email":"jen@wengroup.com","Phone 2":"650-867-1128","Discount":"","Note":""},
+                {"Company":"SCubed Capital","Invoicing Email":"caroline@scubedcap.com","Phone":"(650) 454-4493","Representative":"Caroline","Position":"","Email":"caroline@scubedcap.com","Phone 2":"(650) 454-4493","Discount":"","Note":""},
+                {"Company":"Granada Apartments","Invoicing Email":"granada.maria@gmail.com","Phone":"(801) 380-2880","Representative":"Loran Lusvardi","Position":"Community Manager","Email":"granada.maria@gmail.com","Phone 2":"(801) 380-2880","Discount":"","Note":""},
+                {"Company":"Manor INC","Invoicing Email":"cs@manorinc.com","Phone":"(650) 637-1616 ext 1","Representative":"Peggy Chavez","Position":"Director of Client Experience","Email":"peggy@manorinc.com","Phone 2":"","Discount":"","Note":""},
+                {"Company":"Grand Estate Management","Invoicing Email":"michaelp@grandestatemanagement.com","Phone":"(408) 883-2081","Representative":"Michael Parnicky","Position":"Senior Estate Manager","Email":"michaelp@grandestatemanagement.com","Phone 2":"(408) 883-2081","Discount":"","Note":""},
+                {"Company":"W2 Property Management","Invoicing Email":"noe@w2propertymgt.com","Phone":"415-316-4369","Representative":"Noe de la Cruz","Position":"","Email":"","Phone 2":"","Discount":"","Note":""}
+            ],
+            outstandingPayments: [
+                {"Customer name":"HONEY HOMES","Phone number":"","Email":"","Amount due":"339","Invoice status":"SENT","HCP Invoice #":"9634","Invoice date":"2025-09-15","Last Contact/Reminder Date":"","Payment status":"PAID","Due period (days)":"2","Note":""},
+                {"Customer name":"W2 PROPERTIES #205","Phone number":"","Email":"noe@w2propertymgt.com","Amount due":"749.76","Invoice status":"SENT","HCP Invoice #":"9621","Invoice date":"2025-09-12","Last Contact/Reminder Date":"","Payment status":"OUTSTANDING","Due period (days)":"5","Note":""},
+                {"Customer name":"HONEY HOMES","Phone number":"","Email":"","Amount due":"169","Invoice status":"SENT","HCP Invoice #":"9605","Invoice date":"2025-09-15","Last Contact/Reminder Date":"","Payment status":"PAID","Due period (days)":"2","Note":""},
+                {"Customer name":"HONEY HOMES","Phone number":"","Email":"","Amount due":"689","Invoice status":"SENT","HCP Invoice #":"9604","Invoice date":"2025-09-16","Last Contact/Reminder Date":"","Payment status":"PAID","Due period (days)":"1","Note":""},
+                {"Customer name":"HONEY HOMES","Phone number":"","Email":"","Amount due":"1199.94","Invoice status":"SENT","HCP Invoice #":"9579","Invoice date":"2025-09-15","Last Contact/Reminder Date":"","Payment status":"PAID","Due period (days)":"2","Note":""},
+                {"Customer name":"Joann Dethman.","Phone number":"(650) 269-069","Email":"joanndethman@gmail.com","Amount due":"339","Invoice status":"SENT","HCP Invoice #":"9577","Invoice date":"2025-09-15","Last Contact/Reminder Date":"","Payment status":"OUTSTANDING","Due period (days)":"2","Note":""},
+                {"Customer name":"Agile Appliance","Phone number":"(650) 625-7475","Email":"","Amount due":"379","Invoice status":"SENT","HCP Invoice #":"9570","Invoice date":"2025-09-10","Last Contact/Reminder Date":"","Payment status":"OUTSTANDING","Due period (days)":"7","Note":""},
+                {"Customer name":"Tetiana Grinberg","Phone number":"(510) 345-9846","Email":"tetiana.grinberg@gmail.com","Amount due":"99","Invoice status":"SENT","HCP Invoice #":"9569","Invoice date":"2025-09-10","Last Contact/Reminder Date":"","Payment status":"PAID","Due period (days)":"7","Note":""}
+            ],
+            autoAnswers: [
+                 {"Service type": "Air Duct cleaning", "Message": "Hi [Client Name],\n\nThis is Thomas with Bay Services and thank you for considering Air Duct cleaning services with us.\n\n1️⃣— The price of the deep cleaning is $340 up to 10 registers/ducts. Price includes cleaning & sanitizing intake and return duct & vents.\n\n2️⃣ — After 10 vents the price for each vent is $25\n\n3️⃣ — Please kindly note that you will always get a free dryer vent, kitchen exhaust/range and chimney/fireplace inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment."},
+                 {"Service type": "Chimney /fireplace cleaning", "Message": "Hi [Client Name],\n\nThis is Thomas with Bay Services and thank you for considering Chimney/fireplace cleaning services with us.\n\n1️⃣ — The price of the chimney / fireplace inspection and cleaning will be $169.\n\n2️⃣ — Please kindly note that you will always get a free dryer vent, kitchen exhaust/range and HVAC vents/registers inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment."},
+                 {"Service type": "Dryer vent cleaning", "Message": "Hi [Client Name],\n\nThis is Thomas with Bay Services and thank you for considering dryer vent & duct cleaning services with us.\n\n1️⃣ -- The price of a dryer vent cleaning will be $139\n\n2️⃣ -- Please kindly note that you will always get a free chimney / fireplace, kitchen exhaust/range and HVAC vents/registers inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment."},
+                 {"Service type": "Outstanding Payment Request", "Message": "Hi [Client Name],\n\nThis is Thomas with Bay Services. Hope you're doing well.\n\nI’m reaching out about the outstanding payment for invoice #[Invoice #]. We’d appreciate it if you could arrange payment at your earliest convenience.\n\nThank you!\n\nThomas from Bay Services"},
+                 {"Service type": "AFTER SERVICE FOLLOW-UP MESSAGE", "Message": "Hi [Client Name],\n\nThis is Thomas with Bay Services. I’m reaching out for a after-service follow-up regarding today’s appointment.\n\nCould you please confirm everything went smoothly and share if you have any feedback?\n\nThank you!"}
+            ],
+            serviceInfo: [
+                {"SERVICE":"Dryer Vent Cleaning","WHEN IT NEEDS":"• Clothes take longer to dry.\n• Dryer feels very hot or shuts off due to overheating.\n• Burning smell or visible lint around the dryer.\n• Lint is blowing back inside or you see lint around the outside vent.","SERVICE FREQUENCY":"• Once a year\n• Every 6 months if the dryer is used frequently (more than 4 times a week) or if there are pets in the house.","SERVICE METHODS":"• Rotary brush","SERVICE STAGES":"• Inspection\n• Interior Cleaning\n• Airflow Measurement\n• Exterior Cleaning (If Required)","SERVICE DURATION":"30 mins","NOTES":""},
+                {"SERVICE":"Air Ducts Cleaning","WHEN IT NEEDS":"• Visible dust blowing from supply vents.\n• Uneven airflow or weak airflow in rooms.\n• Allergies, asthma, or respiratory issues increase indoors.\n• After construction/renovation (dust/debris in system).\n• Mold, pests, or rodents suspected inside ducts.","SERVICE FREQUENCY":"• Every 3-5 years","SERVICE METHODS":"• Negative Pressure (Industrial Vacuum)\n• Rotary brush","SERVICE STAGES":"• Covering all vents with a magnetic cover\n• Creating negative pressure inside the air duct system\n• Cleaning each vent with an air compressor\n• Sanitizing","SERVICE DURATION":"1-2 hours","NOTES":""},
+                {"SERVICE":"Kitchen Exhaust Cleaning (Residential)","WHEN IT NEEDS":"• Visible grease buildup on/around the hood.\n• Fan is noisy or doesn't pull smoke well.\n• Lingering cooking smells in the kitchen.\n• Smoke alarms go off frequently when cooking.","SERVICE FREQUENCY":"• Once a year","SERVICE METHODS":"• Applying professional grease remover and washing","SERVICE STAGES":"• Disassemble motor/fan section\n• Apply professional-grade grease remover\n• Clean thoroughly\n• Reinstall all components back in place","SERVICE DURATION":"1–4 hours","NOTES":""},
+                {"SERVICE":"Condenser Coil Cleaning (AC Unit)","WHEN IT NEEDS":"• Cooling efficiency drops, higher energy bills.\n• AC running constantly but not cooling well.\n• Dust, debris, or pet hair visible on outdoor coil.\n• Unit overheats or makes unusual noise.","SERVICE FREQUENCY":"• Once a year","SERVICE METHODS":"• Vacuuming\n• Washing","SERVICE STAGES":"• Removing of all debris (such as leaves) from inside the unit.\n• Applying condenser coil cleaner (foam) and then washing.\n• If washing isn't possible, cleaning with an air compressor.","SERVICE DURATION":"around 30/40mins","NOTES":""},
+                {"SERVICE":"Bath Exhaust Cleaning","WHEN IT NEEDS":"• After renovation.\n• If there is a buildup of dust on and around the bathroom exhaust vent cover or grille.","SERVICE FREQUENCY":"• Every 4–6 months (depends on how often you use it)","SERVICE METHODS":"• Vacuum the bath fan blades using a brush attachment.\n• Taking the unit outside and using compressed air to blow the dust out of the motor, or washing the fan blades.","SERVICE STAGES":"• Checking the model of the unit.\n• Starting the cleaning.\n• Checking how it works.","SERVICE DURATION":"15-30mins","NOTES":""},
+                {"SERVICE":"Furnace Cleaning","WHEN IT NEEDS":"• Unusual noises.\n• Weak airflow.\n• Motor overheating.\n• Start-stop issues (unusual performance).\n• High energy bills.\n• Clogged filters.\n• Unusual smells.","SERVICE FREQUENCY":"• Once a year","SERVICE METHODS":"• Air compressor\n• Brushing and vacuuming\n• Remove the blower motor for cleaning and reinstall (deep cleaning)","SERVICE STAGES":"• Check.\n• Clean.\n• Close back.","SERVICE DURATION":"30/40 mins","NOTES":""}
+            ],
+            serviceRecommendations: [
+                {"Service":"Dryer Vent Cleaning","Recommendation":"The dryer vent is recommended to be cleaned at least once a year. If the dryer is used frequently (more than 4 times a week) or has a pet, it is recommended to clean it every 6 months. While cleaning, all lint needs to be removed from the dryer vent, and the lint trap and flex hose should be checked. If it's loose or damaged, it needs to be replaced. After cleaning, the exterior vent flap or dryer vent cap needs to be inspected. \n\nWhat happens if the dryer vent is not cleaned? \n\nNeglecting the cleaning of your dryer vent can lead to serious consequences. Lint buildup can overheat and ignite, increasing the risk of a fire hazard."},
+                {"Service":"Air Ducts Cleaning","Recommendation":"Air duct cleaning is recommended every 3-5 years. It should be done sooner if :\n-There is much dust around the vents\n-Someone has allergies/asthma in home\n-Have a pet\n-Had remodeling/renovation \n-Smell mold/musty odor\n\nWhat happens if the air ducts are not cleaned? \n\nDirty air ducts can spread dust, allergens, and other contaminants throughout your home, leading to poor indoor air quality. This can worsen allergy and asthma symptoms and cause respiratory irritation."},
+                {"Service":"Chimney Sweep","Recommendation":"The chimney needs to be cleaned at least once a year to prevent chimney fires. During the chimney sweep, a professional technician will remove creosote, a flammable substance that builds up inside the chimney. The technician will also inspect the chimney for any cracks or damage. \n\nWhat happens if the chimney is not cleaned? \n\nThe buildup of creosote can ignite and cause a chimney fire, which can spread to the rest of the house. Also, a dirty chimney can release carbon monoxide into your home, which is a poisonous gas."},
+                {"Service":"Condenser Coil Cleaning","Recommendation":"The condenser coil needs cleaning once a year.\nWhen condenser coils are dirty, dusty, oxidized, or blocked with debris, the unit works harder and uses more energy to achieve the same degree of cooling.\nIt can lead to higher energy bills and consumption, or your air conditioning unit overheating."}
+            ]
+        };
+        const dataHeaders = {
+            services: ["Service", "Type", "Price", "Note"],
+            propertyManagement: ["Company", "Invoicing Email", "Phone", "Representative", "Position", "Email", "Phone 2", "Discount", "Note"],
+            outstandingPayments: ["Customer name", "Phone number", "Email", "Amount due", "Invoice status", "HCP Invoice #", "Invoice date", "Last Contact/Reminder Date", "Payment status", "Due period (days)", "Note"]
+        };
+        
+        // --- COMBINED SERVICE DATA ---
+        let serviceDetails = dataStore.serviceInfo.map(info => {
+            const recommendation = dataStore.serviceRecommendations.find(rec => rec.Service === info.SERVICE);
+            return {
+                ...info,
+                Recommendation: recommendation ? recommendation.Recommendation : 'No recommendation available.'
+            };
+        });
+
+        let sortState = {
+            column: 'Invoice date',
+            direction: 'desc'
+        };
+
+        // --- UI LOGIC & RENDERING ---
+        let map;
+        
+        function showTab(tabId) {
+            document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+            const sectionId = tabId === 'map' ? 'map-section' : tabId;
+            document.getElementById(sectionId).classList.add('active');
+            document.querySelector(`.tab-button[onclick="showTab('${tabId}')"]`).classList.add('active');
+            if (tabId === 'map' && !map) initializeMap();
+        }
+        
+        function updateCaliforniaTime() {
+            const timeEl = document.getElementById('california-time');
+            if (timeEl) {
+                const now = new Date();
+                const timeString = now.toLocaleTimeString('en-US', {
+                    timeZone: 'America/Los_Angeles',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: true
+                });
+                const dateString = now.toLocaleDateString('en-US', {
+                    timeZone: 'America/Los_Angeles',
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+                timeEl.innerHTML = `
+                    <p class="text-3xl font-semibold text-gray-800">${timeString}</p>
+                    <p class="text-md text-gray-500">${dateString}</p>
+                `;
+            }
+        }
+
+        function copyToClipboard(text) {
+            const ta = document.createElement("textarea");
+            ta.value = text;
+            ta.style.position = "fixed";
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); showNotification('Text copied!'); } catch (err) { console.error('Copy failed', err); }
+            document.body.removeChild(ta);
+        }
+
+        function showNotification(message) {
+            const el = document.getElementById('notification');
+            el.textContent = message;
+            el.classList.add('show');
+            setTimeout(() => el.classList.remove('show'), 2000);
+        }
+
+        // --- DYNAMIC TABLE & MODAL LOGIC ---
+        function createEditableTable(dataType, data, headers) {
+            let table = '<table class="w-full table-auto text-sm">';
+            let headerHtml = '';
+            headers.forEach(h => {
+                headerHtml += `<th class="p-3 font-semibold tracking-wide text-left">${h}</th>`;
+            });
+            table += `<thead><tr>${headerHtml}<th class="p-3 font-semibold tracking-wide text-left">Actions</th></tr></thead>`;
+            
+            table += '<tbody class="divide-y divide-gray-100">';
+            data.forEach((row, index) => {
+                table += `<tr data-index="${index}">`;
+                headers.forEach(header => {
+                    const value = row[header] || '';
+                    let cellContent = value;
+                    if (header === 'Payment status') {
+                        const statusClass = String(value).toLowerCase() === 'paid' ? 'text-green-600 bg-green-100' : 'text-red-600 bg-red-100';
+                        cellContent = `<span class="px-2 py-1 rounded-full text-xs font-medium ${statusClass}">${value}</span>`;
+                    } else if (header === 'Amount due') {
+                        cellContent = `$${value}`;
+                    }
+                    table += `<td class="p-3 text-gray-700">${cellContent}</td>`;
+                });
+                table += `<td class="p-3"><button onclick="openEditModal('${dataType}', ${index})" class="action-button text-blue-500 hover:underline mr-2">Edit</button><button onclick="deleteRow('${dataType}', ${index})" class="action-button text-red-500 hover:underline">Delete</button></td>`;
+                table += '</tr>';
+            });
+            table += '</tbody></table>';
+            return table;
+        }
+
+        function openModal(modalId, title, bodyContent, onSave) {
+            document.getElementById(`${modalId}-title`).innerText = title;
+            document.getElementById(`${modalId}-body`).innerHTML = bodyContent;
+            
+            const saveBtn = document.getElementById('modal-save-btn');
+            if(modalId === 'edit-modal' && saveBtn) {
+                saveBtn.onclick = onSave;
+            }
+
+            document.getElementById('modal-backdrop').style.display = 'block';
+            document.getElementById(modalId).style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('modal-backdrop').style.display = 'none';
+            document.getElementById('edit-modal').style.display = 'none';
+            document.getElementById('info-modal').style.display = 'none';
+        }
+
+        function openEditModal(dataType, index) {
+            const item = dataStore[dataType][index];
+            const headers = dataHeaders[dataType];
+            let formHtml = '';
+            headers.forEach(header => {
+                const inputId = `edit-${dataType}-${header.replace(/[^a-zA-Z0-9]/g, '-')}`;
+                formHtml += `<div class="mb-4"><label for="${inputId}" class="block text-sm font-medium text-gray-700">${header}</label><input type="text" id="${inputId}" value="${item[header] || ''}" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"></div>`;
+            });
+            const onSave = () => {
+                headers.forEach(header => {
+                    const inputId = `edit-${dataType}-${header.replace(/[^a-zA-Z0-9]/g, '-')}`;
+                    dataStore[dataType][index][header] = document.getElementById(inputId).value;
+                });
+                closeModal();
+                rerender(dataType);
+                showNotification('Entry updated!');
+            };
+            openModal('edit-modal', `Edit ${dataType}`, formHtml, onSave);
+        }
+        
+        function openAddModal(dataType) {
+            const headers = dataHeaders[dataType];
+            let formHtml = '';
+            headers.forEach(header => {
+                const inputId = `add-${dataType}-${header.replace(/[^a-zA-Z0-9]/g, '-')}`;
+                formHtml += `<div class="mb-4"><label for="${inputId}" class="block text-sm font-medium text-gray-700">${header}</label><input type="text" id="${inputId}" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"></div>`;
+            });
+             const onSave = () => {
+                const newItem = {};
+                headers.forEach(header => {
+                    const inputId = `add-${dataType}-${header.replace(/[^a-zA-Z0-9]/g, '-')}`;
+                    newItem[header] = document.getElementById(inputId).value;
+                });
+                dataStore[dataType].push(newItem);
+                closeModal();
+                rerender(dataType);
+                showNotification('New entry added!');
+            };
+            openModal('edit-modal', `Add New ${dataType}`, formHtml, onSave);
+        }
+        
+        function openInfoModal(index) {
+            const item = serviceDetails[index];
+            const title = item.SERVICE;
+            const bodyHtml = `
+                <div class="space-y-4">
+                    <div>
+                        <h5 class="font-semibold text-gray-700 mb-1">When it's needed:</h5>
+                        <p>${item["WHEN IT NEEDS"] ? item["WHEN IT NEEDS"].replace(/\n/g, '<br>') : 'N/A'}</p>
+                    </div>
+                    <div>
+                        <h5 class="font-semibold text-gray-700 mb-1">Frequency:</h5>
+                        <p>${item["SERVICE FREQUENCY"] ? item["SERVICE FREQUENCY"].replace(/\n/g, '<br>') : 'N/A'}</p>
+                    </div>
+                    <div>
+                        <h5 class="font-semibold text-gray-700 mb-1">Methods:</h5>
+                        <p>${item["SERVICE METHODS"] ? item["SERVICE METHODS"].replace(/\n/g, '<br>') : 'N/A'}</p>
+                    </div>
+                    <div>
+                        <h5 class="font-semibold text-gray-700 mb-1">Stages:</h5>
+                        <p>${item["SERVICE STAGES"] ? item["SERVICE STAGES"].replace(/\n/g, '<br>') : 'N/A'}</p>
+                    </div>
+                    <div>
+                        <h5 class="font-semibold text-gray-700 mb-1">Duration:</h5>
+                        <p>${item["SERVICE DURATION"] || 'N/A'}</p>
+                    </div>
+                    ${item["NOTES"] ? `<div><h5 class="font-semibold text-gray-700 mb-1">Notes:</h5><p>${item["NOTES"]}</p></div>` : ''}
+                    <div class="border-t pt-4 mt-4">
+                        <h5 class="font-semibold text-gray-700 mb-1">Recommendation:</h5>
+                        <p>${item.Recommendation.replace(/\n/g, '<br>')}</p>
+                    </div>
+                </div>
+            `;
+            openModal('info-modal', title, bodyHtml);
+        }
+
+        function deleteRow(dataType, index) {
+            if (confirm('Are you sure you want to delete this entry?')) {
+                 dataStore[dataType].splice(index, 1);
+                 rerender(dataType);
+                 showNotification('Entry deleted!');
+            }
+        }
+        
+        function rerender(dataType){
+             if(dataType === 'services') renderServicesPrices();
+             if(dataType === 'propertyManagement') renderPropertyManagement();
+             if(dataType === 'outstandingPayments') renderOutstandingPayments();
+        }
+
+        // --- RENDER FUNCTIONS ---
+        function renderServicesPrices(filter = '') {
+            const filteredData = dataStore.services.filter(s => Object.values(s).some(val => String(val).toLowerCase().includes(filter.toLowerCase())));
+            document.getElementById('services-prices').innerHTML = createEditableTable('services', filteredData, dataHeaders.services);
+        }
+        function renderPropertyManagement(filter = '') {
+            const filteredData = dataStore.propertyManagement.filter(pm => Object.values(pm).some(val => String(val).toLowerCase().includes(filter.toLowerCase())));
+            document.getElementById('property-management-table').innerHTML = createEditableTable('propertyManagement', filteredData, dataHeaders.propertyManagement);
+        }
+        
+        function sortTable(column) {
+            if (sortState.column === column) {
+                sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortState.column = column;
+                sortState.direction = 'asc';
+            }
+
+            dataStore.outstandingPayments.sort((a, b) => {
+                let valA = a[column];
+                let valB = b[column];
+
+                // Handle numeric sorting for Amount due and Invoice #
+                if (column === 'Amount due' || column === 'HCP Invoice #') {
+                    valA = parseFloat(valA) || 0;
+                    valB = parseFloat(valB) || 0;
+                } else {
+                    valA = String(valA).toLowerCase();
+                    valB = String(valB).toLowerCase();
+                }
+
+                if (valA < valB) {
+                    return sortState.direction === 'asc' ? -1 : 1;
+                }
+                if (valA > valB) {
+                    return sortState.direction === 'asc' ? 1 : -1;
+                }
+                return 0;
+            });
+            renderOutstandingPayments();
+        }
+        
+        function renderOutstandingPayments(filter = '') {
+            const headers = dataHeaders.outstandingPayments;
+            const container = document.getElementById('outstanding-payments-table');
+            
+            // Filtering
+            const filteredData = dataStore.outstandingPayments.filter(op => Object.values(op).some(val => String(val).toLowerCase().includes(filter.toLowerCase())));
+
+            // Table Header
+            let table = '<table class="w-full table-auto text-sm">';
+            let headerHtml = headers.map(h => {
+                const isSortable = ['Amount due', 'HCP Invoice #', 'Invoice date', 'Payment status'].includes(h);
+                if (isSortable) {
+                    const sortClass = sortState.column === h ? `sortable ${sortState.direction}` : 'sortable';
+                    return `<th onclick="sortTable('${h}')" class="${sortClass} p-3 font-semibold tracking-wide text-left">${h}</th>`;
+                }
+                return `<th class="p-3 font-semibold tracking-wide text-left">${h}</th>`;
+            }).join('');
+            table += `<thead><tr>${headerHtml}<th class="p-3 font-semibold tracking-wide text-left">Actions</th></tr></thead>`;
+            
+            // Table Body
+            table += '<tbody class="divide-y divide-gray-100">';
+            filteredData.forEach(row => {
+                const originalIndex = dataStore.outstandingPayments.indexOf(row);
+                table += `<tr data-index="${originalIndex}">`;
+                headers.forEach(header => {
+                    const value = row[header] || '';
+                    let cellContent = value;
+                    if (header === 'Payment status') {
+                        const statusClass = String(value).toLowerCase() === 'paid' ? 'text-green-600 bg-green-100' : 'text-red-600 bg-red-100';
+                        cellContent = `<span class="px-2 py-1 rounded-full text-xs font-medium ${statusClass}">${value}</span>`;
+                    } else if (header === 'Amount due') {
+                         cellContent = `$${parseFloat(value).toFixed(2)}`;
+                    }
+                    table += `<td class="p-3 text-gray-700">${cellContent}</td>`;
+                });
+                table += `<td class="p-3"><button onclick="openEditModal('outstandingPayments', ${originalIndex})" class="action-button text-blue-500 hover:underline mr-2">Edit</button><button onclick="deleteRow('outstandingPayments', ${originalIndex})" class="action-button text-red-500 hover:underline">Delete</button></td>`;
+                table += '</tr>';
+            });
+            table += '</tbody></table>';
+            container.innerHTML = table;
+            
+            // Calculate and Render Totals
+            let outstandingAmount = 0;
+            dataStore.outstandingPayments.forEach(row => {
+                if (String(row['Payment status']).toLowerCase() !== 'paid') {
+                    outstandingAmount += parseFloat(row['Amount due']) || 0;
+                }
+            });
+            document.getElementById('outstanding-payments-total').innerHTML = `
+                <span>Total of Outstanding Payments: <span class="text-red-600">$${outstandingAmount.toFixed(2)}</span></span>
+            `;
+        }
+
+        function renderAutoAnswers() {
+            const container = document.getElementById('auto-answers');
+            container.innerHTML = dataStore.autoAnswers.map((answer, index) => `
+                <div class="template-card flex flex-col">
+                    <h4 class="font-semibold text-gray-800 mb-3">${answer['Service type']}</h4>
+                    <textarea readonly class="text-sm text-gray-600 bg-gray-50 p-4 rounded-lg flex-grow resize-none h-64">${answer.Message}</textarea>
+                    <button onclick="copyToClipboard(dataStore.autoAnswers[${index}].Message)" class="copy-button mt-4 w-full btn-primary">Copy Text</button>
+                </div>
+            `).join('');
+        }
+        
+        function renderServiceInfoGrid() {
+            const container = document.getElementById('service-info-grid');
+            container.innerHTML = serviceDetails.map((item, index) => `
+                <button onclick="openInfoModal(${index})" class="service-card text-left h-full flex flex-col justify-center">
+                    <h4 class="font-semibold text-gray-800 text-center">${item.SERVICE}</h4>
+                </button>
+            `).join('');
+        }
+
+        // --- Schedules (Special Handling) ---
+        function createScheduleTable(scheduleData, headers, tableId) {
+             let table = '<table class="w-full table-auto text-sm">';
+             table += `<thead><tr>${headers.map(h => `<th class="p-3 font-semibold tracking-wide text-left">${h}</th>`).join('')}</tr></thead><tbody>`;
+             scheduleData.forEach((row, rowIndex) => {
+                 table += `<tr>`;
+                 headers.forEach(header => {
+                     const isDay = header.toLowerCase() === 'days';
+                     const cellId = `${tableId}-${rowIndex}-${header.replace(/[^a-zA-Z0-9]/g, '')}`;
+                     table += `<td class="p-3 text-gray-700" id="${cellId}" contenteditable="${!isDay}">${row[header] || ''}</td>`;
+                 });
+                 table += `</tr>`;
+             });
+             table += '</tbody></table>';
+             return table;
+        }
+
+        function renderSchedules() {
+            const dispatchHeaders = ["Days", "Vuqar/David", "Kanan/Kenny", "Nahida/Emma", "Narmina/Nora", "Orxan/Eric"];
+            document.getElementById('dispatching-schedule').innerHTML = createScheduleTable(dataStore.dispatchingSchedule, dispatchHeaders, 'dispatch');
+            
+            const mgmtHeaders = ["Days", "Vuqar/David", "Nahida/Emma"];
+            document.getElementById('management-schedule').innerHTML = createScheduleTable(dataStore.managementSchedule, mgmtHeaders, 'mgmt');
+        }
+
+        function saveSchedules() {
+            const dispatchHeaders = ["Days", "Vuqar/David", "Kanan/Kenny", "Nahida/Emma", "Narmina/Nora", "Orxan/Eric"];
+            dataStore.dispatchingSchedule.forEach((row, rowIndex) => {
+                 dispatchHeaders.forEach(header => {
+                    if (header.toLowerCase() !== 'days') {
+                        const cellId = `dispatch-${rowIndex}-${header.replace(/[^a-zA-Z0-9]/g, '')}`;
+                        row[header] = document.getElementById(cellId).innerText;
+                    }
+                 });
+            });
+            const mgmtHeaders = ["Days", "Vuqar/David", "Nahida/Emma"];
+            dataStore.managementSchedule.forEach((row, rowIndex) => {
+                mgmtHeaders.forEach(header => {
+                   if (header.toLowerCase() !== 'days') {
+                       const cellId = `mgmt-${rowIndex}-${header.replace(/[^a-zA-Z0-9]/g, '')}`;
+                       row[header] = document.getElementById(cellId).innerText;
+                   }
+                });
+            });
+            showNotification('Schedules updated!');
+            renderSchedules();
+        }
+
+        // --- MAP ---
+        function initializeMap() {
+            map = L.map('map').setView([36.7783, -119.4179], 6); // Centered on California
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '© OpenStreetMap'
+            }).addTo(map);
+
+            const provider = new GeoSearch.OpenStreetMapProvider();
+            const searchControl = new GeoSearch.GeoSearchControl({
+                provider: provider,
+                style: 'bar',
+                showMarker: true,
+                showPopup: false,
+                autoClose: true,
+                retainZoomLevel: false,
+                animateZoom: true,
+                keepResult: true,
+            });
+            map.addControl(searchControl);
+        }
+        
+        // --- INITIALIZATION ---
+        document.addEventListener('DOMContentLoaded', () => {
+            renderSchedules();
+            renderPropertyManagement();
+            renderOutstandingPayments();
+            renderAutoAnswers();
+            renderServiceInfoGrid();
+            renderServicesPrices();
+            
+            updateCaliforniaTime();
+            setInterval(updateCaliforniaTime, 1000);
+            
+            document.getElementById('services-search').addEventListener('input', (e) => renderServicesPrices(e.target.value));
+            document.getElementById('pm-search').addEventListener('input', (e) => renderPropertyManagement(e.target.value));
+            document.getElementById('op-search').addEventListener('input', (e) => renderOutstandingPayments(e.target.value));
+            
+            // Initialize browsers
+            initializeBrowsers();
+        });
+
+        // --- EMBEDDED BROWSER MANAGEMENT FUNCTIONS ---
+        let browserHistory = {
+            browser1: [],
+            browser2: []
+        };
+
+        function refreshBrowser1() {
+            const iframe = document.getElementById('browser1');
+            iframe.src = iframe.src;
+            showNotification('Left browser refreshed');
+        }
+
+        function refreshBrowser2() {
+            const iframe = document.getElementById('browser2');
+            iframe.src = iframe.src;
+            showNotification('Right browser refreshed');
+        }
+
+        function goBackBrowser1() {
+            const iframe = document.getElementById('browser1');
+            try {
+                iframe.contentWindow.history.back();
+                showNotification('Left browser: Go back');
+            } catch (error) {
+                showNotification('Cannot navigate back (cross-origin restriction)');
+            }
+        }
+
+        function goForwardBrowser1() {
+            const iframe = document.getElementById('browser1');
+            try {
+                iframe.contentWindow.history.forward();
+                showNotification('Left browser: Go forward');
+            } catch (error) {
+                showNotification('Cannot navigate forward (cross-origin restriction)');
+            }
+        }
+
+        function goBackBrowser2() {
+            const iframe = document.getElementById('browser2');
+            try {
+                iframe.contentWindow.history.back();
+                showNotification('Right browser: Go back');
+            } catch (error) {
+                showNotification('Cannot navigate back (cross-origin restriction)');
+            }
+        }
+
+        function goForwardBrowser2() {
+            const iframe = document.getElementById('browser2');
+            try {
+                iframe.contentWindow.history.forward();
+                showNotification('Right browser: Go forward');
+            } catch (error) {
+                showNotification('Cannot navigate forward (cross-origin restriction)');
+            }
+        }
+
+        function navigateBrowser1() {
+            const url = document.getElementById('urlInput1').value;
+            if (url) {
+                const iframe = document.getElementById('browser1');
+                iframe.src = url.startsWith('http') ? url : 'https://' + url;
+                showNotification(`Left browser: Navigating to ${url}`);
+            }
+        }
+
+        function navigateBrowser2() {
+            const url = document.getElementById('urlInput2').value;
+            if (url) {
+                const iframe = document.getElementById('browser2');
+                iframe.src = url.startsWith('http') ? url : 'https://' + url;
+                showNotification(`Right browser: Navigating to ${url}`);
+            }
+        }
+
+        function handleUrlInput1(event) {
+            if (event.key === 'Enter') {
+                navigateBrowser1();
+            }
+        }
+
+        function handleUrlInput2(event) {
+            if (event.key === 'Enter') {
+                navigateBrowser2();
+            }
+        }
+
+        function openQuickLink1(url) {
+            const iframe = document.getElementById('browser1');
+            iframe.src = url;
+            document.getElementById('urlInput1').value = url;
+            showNotification(`Left browser: Opening ${url}`);
+        }
+
+        function openQuickLink2(url) {
+            const iframe = document.getElementById('browser2');
+            iframe.src = url;
+            document.getElementById('urlInput2').value = url;
+            showNotification(`Right browser: Opening ${url}`);
+        }
+
+        // Initialize browsers with default URLs
+        function initializeBrowsers() {
+            // Set default URLs for both browsers
+            document.getElementById('urlInput1').value = 'https://accounts.google.com/signin';
+            document.getElementById('urlInput2').value = 'https://accounts.google.com/signin';
+        }
+
+        // --- SIMPLE BROWSER FUNCTIONS ---
+        const platformUrls = {
+            gmail: 'https://accounts.google.com/signin?continue=https://mail.google.com',
+            housecall: 'https://app.housecallpro.com/login',
+            yelp: 'https://biz.yelp.com/login',
+            thumbtack: 'https://www.thumbtack.com/login'
+        };
+
+        // Simple Platform Functions
+        function openPlatform(browserNum, platform) {
+            const iframe = document.getElementById(`browser${browserNum}`);
+            const url = platformUrls[platform];
+            
+            iframe.src = url;
+            document.getElementById(`urlInput${browserNum}`).value = url;
+            
+            showNotification(`Browser ${browserNum}: Opening ${platform}`);
+        }
+
+        function openPlatformInNewWindow(browserNum, platform) {
+            const url = platformUrls[platform];
+            const windowName = `Browser${browserNum}_${platform}`;
+            
+            const newWindow = window.open(url, windowName, 'width=1200,height=800,scrollbars=yes,resizable=yes,location=yes,menubar=yes,toolbar=yes');
+            
+            if (newWindow) {
+                showNotification(`Browser ${browserNum}: Opening ${platform} in new window`);
+                // Update URL input to show what was opened
+                document.getElementById(`urlInput${browserNum}`).value = url;
+            } else {
+                showNotification('Popup blocked! Please allow popups for this site and try again.');
+            }
+        }
+    </script>
+</body>
+</html>
+
