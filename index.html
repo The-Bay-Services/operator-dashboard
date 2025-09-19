@@ -372,11 +372,11 @@
                 <button onclick="showTab('schedules')" class="tab-button text-sm font-medium px-6 py-3 text-gray-600 rounded-xl transition-all">Schedules</button>
                 <button onclick="showTab('property-management')" class="tab-button text-sm font-medium px-6 py-3 text-gray-600 rounded-xl transition-all">Property Management</button>
                 <button onclick="showTab('payments')" class="tab-button text-sm font-medium px-6 py-3 text-gray-600 rounded-xl transition-all">Payments</button>
-                <button onclick="showTab('templates')" class="tab-button text-sm font-medium px-6 py-3 text-gray-600 rounded-xl transition-all">Templates</button>
+                <button onclick="showTab('templates')" class="tab-button text-sm font-medium px-6 py-3 text-gray-600 rounded-xl transition-all">Automatic Answers</button>
                 <button onclick="showTab('info')" class="tab-button text-sm font-medium px-6 py-3 text-gray-600 rounded-xl transition-all">Service Info</button>
                 <button onclick="showTab('services')" class="tab-button text-sm font-medium px-6 py-3 text-gray-600 rounded-xl transition-all">Services & Prices</button>
                 <button onclick="showTab('map')" class="tab-button text-sm font-medium px-6 py-3 text-gray-600 rounded-xl transition-all">Map</button>
-                <button onclick="showTab('browsers')" class="tab-button text-sm font-medium px-6 py-3 text-gray-600 rounded-xl transition-all">Dual Browsers</button>
+                <button onclick="showTab('browsers')" class="tab-button text-sm font-medium px-6 py-3 text-gray-600 rounded-xl transition-all">Browser</button>
             </div>
         </nav>
 
@@ -384,6 +384,22 @@
             <div id="dashboard" class="content-section active fade-in">
                 <h2 class="text-3xl font-bold mb-6" style="font-family: 'Poppins', sans-serif; color: var(--primary-color);">Welcome!</h2>
                 <div id="california-time" class="time-display mb-8"></div>
+                
+                <!-- Compact Schedule Section -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                    <!-- Dispatching Schedule -->
+                    <div class="card p-4">
+                        <h3 class="text-lg font-semibold mb-3" style="color: var(--secondary-color);">Dispatching Schedule</h3>
+                        <div id="dashboard-dispatching-schedule" class="text-sm"></div>
+                    </div>
+                    
+                    <!-- Management Schedule -->
+                    <div class="card p-4">
+                        <h3 class="text-lg font-semibold mb-3" style="color: var(--secondary-color);">Management Schedule</h3>
+                        <div id="dashboard-management-schedule" class="text-sm"></div>
+                    </div>
+                </div>
+                
                 <div class="p-6 mb-6 alert-warning" role="alert">
                   <span class="font-semibold">Important Note:</span> Any changes you make (edits, additions, deletions) are temporary and will be lost when you reload the page. This is a single-file application without a database.
                 </div>
@@ -428,9 +444,9 @@
                 <div id="outstanding-payments-total" class="mt-4 text-right font-bold text-lg text-gray-700"></div>
             </div>
 
-            <!-- TEMPLATES: Made bigger -->
+            <!-- AUTOMATIC ANSWERS: Made bigger -->
             <div id="templates" class="content-section fade-in">
-                <h2 class="text-3xl font-bold mb-6" style="font-family: 'Poppins', sans-serif; color: var(--primary-color);">Automatic Answer Templates</h2>
+                <h2 class="text-3xl font-bold mb-6" style="font-family: 'Poppins', sans-serif; color: var(--primary-color);">Automatic Answers</h2>
                 <div id="auto-answers" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
             </div>
 
@@ -452,153 +468,120 @@
             </div>
 
             <div id="map-section" class="content-section fade-in">
-                 <h2 class="text-3xl font-bold mb-6" style="font-family: 'Poppins', sans-serif; color: var(--primary-color);">California Map</h2>
-                 <p class="mb-4" style="color: var(--primary-color);">Use the search bar on the map to find addresses.</p>
+                 <h2 class="text-3xl font-bold mb-6" style="font-family: 'Poppins', sans-serif; color: var(--primary-color);">Bay Area Map</h2>
+                 <p class="mb-4" style="color: var(--primary-color);">Use the search bar on the map to find addresses in the San Francisco Bay Area.</p>
                  <div id="map"></div>
             </div>
 
-            <!-- SIMPLE DUAL BROWSERS SECTION -->
+            <!-- SINGLE BROWSER SECTION -->
             <div id="browsers" class="content-section fade-in">
-                <h2 class="text-3xl font-bold mb-6" style="font-family: 'Poppins', sans-serif; color: var(--primary-color);">Dual Browsers</h2>
-                <p class="mb-6" style="color: var(--primary-color);">Two separate browser windows with quick access to all your platforms.</p>
+                <h2 class="text-3xl font-bold mb-6" style="font-family: 'Poppins', sans-serif; color: var(--primary-color);">Integrated Browser</h2>
+                <p class="mb-6" style="color: var(--primary-color);">Access all your platforms and services in one integrated browser window.</p>
                 
                 <!-- Info Message -->
-                <div class="card p-4 mb-4 bg-green-50 border-l-4 border-green-500">
+                <div class="card p-4 mb-4 bg-blue-50 border-l-4 border-blue-500">
                     <div class="flex items-center">
-                        <div class="text-green-500 mr-3">✅</div>
+                        <div class="text-blue-500 mr-3">ℹ️</div>
                         <div>
-                            <p class="text-sm text-green-800">
-                                <strong>Platform buttons open directly in the browsers below.</strong> 
-                                Click any platform button to navigate instantly within the embedded browser.
+                            <p class="text-sm text-blue-800">
+                                <strong>Platform buttons open in new windows</strong> to ensure full functionality and avoid restrictions. 
+                                Use the URL bar below for direct navigation within the embedded browser.
                             </p>
                         </div>
                     </div>
                 </div>
                 
-                <!-- Two Browser Windows -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-                    <!-- Left Browser -->
-                    <div class="card p-0 overflow-hidden" style="height: 80vh;">
-                        <!-- Browser Header -->
-                        <div class="bg-gradient-to-r from-blue-500 to-blue-600 p-3 text-white">
-                            <div class="flex items-center justify-between mb-2">
-                                <h3 class="font-semibold">Browser 1 - Account 1</h3>
-                                <div class="flex gap-2">
-                                    <button onclick="refreshBrowser1()" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-2 py-1 rounded text-xs">↻</button>
-                                    <button onclick="goBackBrowser1()" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-2 py-1 rounded text-xs">←</button>
-                                    <button onclick="goForwardBrowser1()" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-2 py-1 rounded text-xs">→</button>
-                                </div>
-                            </div>
-                            <!-- URL Bar -->
-                            <div class="flex items-center gap-2">
-                                <input type="text" id="urlInput1" placeholder="Enter URL..." class="flex-1 px-2 py-1 rounded text-sm text-gray-800" onkeypress="handleUrlInput1(event)" value="https://accounts.google.com/signin">
-                                <button onclick="navigateBrowser1()" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-2 py-1 rounded text-xs">Go</button>
+                <!-- Single Browser Window -->
+                <div class="card p-0 overflow-hidden" style="height: 80vh;">
+                    <!-- Browser Header -->
+                    <div class="bg-gradient-to-r from-blue-500 to-blue-600 p-3 text-white">
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="font-semibold">Bay Services Browser</h3>
+                            <div class="flex gap-2">
+                                <button onclick="refreshBrowser()" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-2 py-1 rounded text-xs">↻</button>
+                                <button onclick="goBackBrowser()" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-2 py-1 rounded text-xs">←</button>
+                                <button onclick="goForwardBrowser()" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-2 py-1 rounded text-xs">→</button>
                             </div>
                         </div>
-                        
-                        <!-- Platform Buttons -->
-                        <div class="p-3 bg-gray-50 border-b">
-                            <div class="grid grid-cols-4 gap-2 mb-2">
-                                <button onclick="openPlatform(1, 'gmail')" class="platform-btn bg-red-500 hover:bg-red-600 text-white text-xs py-2 px-2 rounded">Gmail</button>
-                                <button onclick="openPlatform(1, 'housecall')" class="platform-btn bg-blue-500 hover:bg-blue-600 text-white text-xs py-2 px-2 rounded">House Call Pro</button>
-                                <button onclick="openPlatform(1, 'yelp')" class="platform-btn bg-red-600 hover:bg-red-700 text-white text-xs py-2 px-2 rounded">Yelp</button>
-                                <button onclick="openPlatform(1, 'thumbtack')" class="platform-btn bg-green-500 hover:bg-green-600 text-white text-xs py-2 px-2 rounded">Thumbtack</button>
-                            </div>
-                            <div class="text-center">
-                                <button onclick="openPlatformInNewWindow(1, 'gmail')" class="text-xs text-gray-600 hover:text-blue-600 underline">Open Gmail in New Window</button>
-                            </div>
-                        </div>
-                        
-                        <!-- Browser Content -->
-                        <iframe id="browser1" src="about:blank" class="w-full h-full border-0" style="height: calc(100% - 120px);" sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"></iframe>
-                    </div>
-
-                    <!-- Right Browser -->
-                    <div class="card p-0 overflow-hidden" style="height: 80vh;">
-                        <!-- Browser Header -->
-                        <div class="bg-gradient-to-r from-green-500 to-green-600 p-3 text-white">
-                            <div class="flex items-center justify-between mb-2">
-                                <h3 class="font-semibold">Browser 2 - Account 2</h3>
-                                <div class="flex gap-2">
-                                    <button onclick="refreshBrowser2()" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-2 py-1 rounded text-xs">↻</button>
-                                    <button onclick="goBackBrowser2()" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-2 py-1 rounded text-xs">←</button>
-                                    <button onclick="goForwardBrowser2()" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-2 py-1 rounded text-xs">→</button>
-                                </div>
-                            </div>
-                            <!-- URL Bar -->
-                            <div class="flex items-center gap-2">
-                                <input type="text" id="urlInput2" placeholder="Enter URL..." class="flex-1 px-2 py-1 rounded text-sm text-gray-800" onkeypress="handleUrlInput2(event)" value="https://accounts.google.com/signin">
-                                <button onclick="navigateBrowser2()" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-2 py-1 rounded text-xs">Go</button>
-                            </div>
-                        </div>
-                        
-                        <!-- Platform Buttons -->
-                        <div class="p-3 bg-gray-50 border-b">
-                            <div class="grid grid-cols-4 gap-2 mb-2">
-                                <button onclick="openPlatform(2, 'gmail')" class="platform-btn bg-red-500 hover:bg-red-600 text-white text-xs py-2 px-2 rounded">Gmail</button>
-                                <button onclick="openPlatform(2, 'housecall')" class="platform-btn bg-blue-500 hover:bg-blue-600 text-white text-xs py-2 px-2 rounded">House Call Pro</button>
-                                <button onclick="openPlatform(2, 'yelp')" class="platform-btn bg-red-600 hover:bg-red-700 text-white text-xs py-2 px-2 rounded">Yelp</button>
-                                <button onclick="openPlatform(2, 'thumbtack')" class="platform-btn bg-green-500 hover:bg-green-600 text-white text-xs py-2 px-2 rounded">Thumbtack</button>
-                            </div>
-                            <div class="text-center">
-                                <button onclick="openPlatformInNewWindow(2, 'gmail')" class="text-xs text-gray-600 hover:text-green-600 underline">Open Gmail in New Window</button>
-                            </div>
-                        </div>
-                        
-                        <!-- Browser Content -->
-                        <iframe id="browser2" src="about:blank" class="w-full h-full border-0" style="height: calc(100% - 120px);" sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"></iframe>
-                    </div>
-                </div>
-
-                <!-- Monitoring & Notifications -->
-                <div class="card p-6">
-                    <h3 class="text-xl font-semibold mb-4" style="color: var(--secondary-color);">Service Monitoring & Notifications</h3>
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <!-- Left Account Status -->
-                        <div class="p-4 bg-blue-50 rounded-lg">
-                            <h4 class="font-semibold mb-3" style="color: var(--primary-color);">Account 1 Status</h4>
-                            <div class="space-y-2">
-                                <div class="flex justify-between">
-                                    <span class="text-sm">New Requests:</span>
-                                    <span id="account1-requests" class="bg-red-500 text-white px-2 py-1 rounded-full text-xs font-bold">0</span>
-                                </div>
-                                <div class="flex justify-between">
-                                    <span class="text-sm">Last Check:</span>
-                                    <span id="account1-lastcheck" class="text-xs text-gray-600">Never</span>
-                                </div>
-                                <div class="flex justify-between">
-                                    <span class="text-sm">Status:</span>
-                                    <span class="text-green-600 font-semibold text-sm">Online</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Right Account Status -->
-                        <div class="p-4 bg-green-50 rounded-lg">
-                            <h4 class="font-semibold mb-3" style="color: var(--primary-color);">Account 2 Status</h4>
-                            <div class="space-y-2">
-                                <div class="flex justify-between">
-                                    <span class="text-sm">New Requests:</span>
-                                    <span id="account2-requests" class="bg-red-500 text-white px-2 py-1 rounded-full text-xs font-bold">0</span>
-                                </div>
-                                <div class="flex justify-between">
-                                    <span class="text-sm">Last Check:</span>
-                                    <span id="account2-lastcheck" class="text-xs text-gray-600">Never</span>
-                                </div>
-                                <div class="flex justify-between">
-                                    <span class="text-sm">Status:</span>
-                                    <span class="text-green-600 font-semibold text-sm">Online</span>
-                                </div>
-                            </div>
+                        <!-- URL Bar -->
+                        <div class="flex items-center gap-2">
+                            <input type="text" id="urlInput" placeholder="Enter URL..." class="flex-1 px-2 py-1 rounded text-sm text-gray-800" onkeypress="handleUrlInput(event)" value="https://www.google.com">
+                            <button onclick="navigateBrowser()" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-2 py-1 rounded text-xs">Go</button>
                         </div>
                     </div>
                     
-                    <!-- Monitoring Controls -->
-                    <div class="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <button onclick="startAllMonitoring()" class="btn-success">Start Monitoring</button>
-                        <button onclick="stopAllMonitoring()" class="btn-danger">Stop Monitoring</button>
-                        <button onclick="checkAllServices()" class="btn-primary">Check All Now</button>
-                        <button onclick="openMonitoringSettings()" class="btn-primary">Settings</button>
+                    <!-- Platform Buttons -->
+                    <div class="p-4 bg-gray-50 border-b">
+                        <h4 class="text-sm font-semibold mb-3 text-gray-700">Quick Access Platforms:</h4>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <button onclick="openPlatformInNewWindow('gmail')" class="platform-btn bg-red-500 hover:bg-red-600 text-white text-sm py-2 px-3 rounded flex items-center justify-center">
+                                <span class="mr-2">📧</span>Gmail
+                            </button>
+                            <button onclick="openPlatformInNewWindow('housecall')" class="platform-btn bg-blue-500 hover:bg-blue-600 text-white text-sm py-2 px-3 rounded flex items-center justify-center">
+                                <span class="mr-2">🏠</span>House Call Pro
+                            </button>
+                            <button onclick="openPlatformInNewWindow('yelp')" class="platform-btn bg-red-600 hover:bg-red-700 text-white text-sm py-2 px-3 rounded flex items-center justify-center">
+                                <span class="mr-2">⭐</span>Yelp
+                            </button>
+                            <button onclick="openPlatformInNewWindow('thumbtack')" class="platform-btn bg-green-500 hover:bg-green-600 text-white text-sm py-2 px-3 rounded flex items-center justify-center">
+                                <span class="mr-2">🔨</span>Thumbtack
+                            </button>
+                        </div>
+                        
+                        <!-- Additional Services -->
+                        <div class="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <button onclick="openPlatformInNewWindow('google')" class="platform-btn bg-gray-500 hover:bg-gray-600 text-white text-sm py-2 px-3 rounded flex items-center justify-center">
+                                <span class="mr-2">🔍</span>Google
+                            </button>
+                            <button onclick="openPlatformInNewWindow('calendar')" class="platform-btn bg-orange-500 hover:bg-orange-600 text-white text-sm py-2 px-3 rounded flex items-center justify-center">
+                                <span class="mr-2">📅</span>Calendar
+                            </button>
+                            <button onclick="openPlatformInNewWindow('drive')" class="platform-btn bg-green-600 hover:bg-green-700 text-white text-sm py-2 px-3 rounded flex items-center justify-center">
+                                <span class="mr-2">💾</span>Drive
+                            </button>
+                            <button onclick="openPlatformInNewWindow('maps')" class="platform-btn bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 px-3 rounded flex items-center justify-center">
+                                <span class="mr-2">🗺️</span>Maps
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Browser Content -->
+                    <iframe id="browser" src="https://www.google.com" class="w-full h-full border-0" style="height: calc(100% - 160px);" sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"></iframe>
+                </div>
+
+                <!-- Service Status -->
+                <div class="card p-6 mt-6">
+                    <h3 class="text-xl font-semibold mb-4" style="color: var(--secondary-color);">Service Status & Monitoring</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="p-4 bg-green-50 rounded-lg">
+                            <h4 class="font-semibold mb-2" style="color: var(--primary-color);">System Status</h4>
+                            <div class="space-y-1">
+                                <div class="flex justify-between">
+                                    <span class="text-sm">Browser:</span>
+                                    <span class="text-green-600 font-semibold text-sm">Online</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm">Platforms:</span>
+                                    <span class="text-green-600 font-semibold text-sm">Ready</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="p-4 bg-blue-50 rounded-lg">
+                            <h4 class="font-semibold mb-2" style="color: var(--primary-color);">Quick Actions</h4>
+                            <div class="space-y-2">
+                                <button onclick="openPlatformInNewWindow('gmail')" class="w-full text-xs bg-red-500 hover:bg-red-600 text-white py-1 px-2 rounded">Open Gmail</button>
+                                <button onclick="openPlatformInNewWindow('housecall')" class="w-full text-xs bg-blue-500 hover:bg-blue-600 text-white py-1 px-2 rounded">Open HCP</button>
+                            </div>
+                        </div>
+                        
+                        <div class="p-4 bg-purple-50 rounded-lg">
+                            <h4 class="font-semibold mb-2" style="color: var(--primary-color);">Last Activity</h4>
+                            <div class="space-y-1">
+                                <div class="text-xs text-gray-600">Browser opened: <span id="last-activity">Just now</span></div>
+                                <div class="text-xs text-gray-600">Platforms accessed: <span id="platform-count">0</span></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -698,8 +681,15 @@
                  {"Service type": "Air Duct cleaning", "Message": "Hi [Client Name],\n\nThis is Thomas with Bay Services and thank you for considering Air Duct cleaning services with us.\n\n1️⃣— The price of the deep cleaning is $340 up to 10 registers/ducts. Price includes cleaning & sanitizing intake and return duct & vents.\n\n2️⃣ — After 10 vents the price for each vent is $25\n\n3️⃣ — Please kindly note that you will always get a free dryer vent, kitchen exhaust/range and chimney/fireplace inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment."},
                  {"Service type": "Chimney /fireplace cleaning", "Message": "Hi [Client Name],\n\nThis is Thomas with Bay Services and thank you for considering Chimney/fireplace cleaning services with us.\n\n1️⃣ — The price of the chimney / fireplace inspection and cleaning will be $169.\n\n2️⃣ — Please kindly note that you will always get a free dryer vent, kitchen exhaust/range and HVAC vents/registers inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment."},
                  {"Service type": "Dryer vent cleaning", "Message": "Hi [Client Name],\n\nThis is Thomas with Bay Services and thank you for considering dryer vent & duct cleaning services with us.\n\n1️⃣ -- The price of a dryer vent cleaning will be $139\n\n2️⃣ -- Please kindly note that you will always get a free chimney / fireplace, kitchen exhaust/range and HVAC vents/registers inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment."},
-                 {"Service type": "Outstanding Payment Request", "Message": "Hi [Client Name],\n\nThis is Thomas with Bay Services. Hope you're doing well.\n\nI’m reaching out about the outstanding payment for invoice #[Invoice #]. We’d appreciate it if you could arrange payment at your earliest convenience.\n\nThank you!\n\nThomas from Bay Services"},
-                 {"Service type": "AFTER SERVICE FOLLOW-UP MESSAGE", "Message": "Hi [Client Name],\n\nThis is Thomas with Bay Services. I’m reaching out for a after-service follow-up regarding today’s appointment.\n\nCould you please confirm everything went smoothly and share if you have any feedback?\n\nThank you!"}
+                 {"Service type": "Kitchen Exhaust Cleaning", "Message": "Hi [Client Name],\n\nThis is Thomas with Bay Services and thank you for considering Kitchen Exhaust cleaning services with us.\n\n1️⃣ — The price ranges from $199-$499 depending on the level of grease buildup.\n\n2️⃣ — We use professional-grade grease remover and thorough cleaning methods.\n\n3️⃣ — Please kindly note that you will always get a free dryer vent, chimney/fireplace and HVAC vents/registers inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment."},
+                 {"Service type": "Bath Fan Cleaning", "Message": "Hi [Client Name],\n\nThis is Thomas with Bay Services and thank you for considering Bath Fan cleaning services with us.\n\n1️⃣ — The price is $49 per fan (if 2 or more services, price is $39 each).\n\n2️⃣ — We clean the fan blades and motor thoroughly.\n\n3️⃣ — Please kindly note that you will always get a free dryer vent, kitchen exhaust/range and chimney/fireplace inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment."},
+                 {"Service type": "Furnace Cleaning", "Message": "Hi [Client Name],\n\nThis is Thomas with Bay Services and thank you for considering Furnace cleaning services with us.\n\n1️⃣ — The price is $75 for professional furnace cleaning.\n\n2️⃣ — We clean the blower motor and all components.\n\n3️⃣ — Please kindly note that you will always get a free dryer vent, kitchen exhaust/range and chimney/fireplace inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment."},
+                 {"Service type": "AC Unit Cleaning", "Message": "Hi [Client Name],\n\nThis is Thomas with Bay Services and thank you for considering AC Unit (condenser coil) cleaning services with us.\n\n1️⃣ — The price is $199 for professional condenser coil cleaning.\n\n2️⃣ — We remove debris and clean the coils thoroughly.\n\n3️⃣ — Please kindly note that you will always get a free dryer vent, kitchen exhaust/range and chimney/fireplace inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment."},
+                 {"Service type": "Outstanding Payment Request", "Message": "Hi [Client Name],\n\nThis is Thomas with Bay Services. Hope you're doing well.\n\nI'm reaching out about the outstanding payment for invoice #[Invoice #]. We'd appreciate it if you could arrange payment at your earliest convenience.\n\nThank you!\n\nThomas from Bay Services"},
+                 {"Service type": "After Service Follow-up", "Message": "Hi [Client Name],\n\nThis is Thomas with Bay Services. I'm reaching out for a after-service follow-up regarding today's appointment.\n\nCould you please confirm everything went smoothly and share if you have any feedback?\n\nThank you!"},
+                 {"Service type": "Appointment Confirmation", "Message": "Hi [Client Name],\n\nThis is Thomas with Bay Services confirming your appointment for [Date] at [Time].\n\nWe will arrive at the scheduled time. If you need to reschedule, please call us at (650)731-7359.\n\nThank you for choosing Bay Services!"},
+                 {"Service type": "Service Reminder", "Message": "Hi [Client Name],\n\nThis is Thomas with Bay Services reminding you that your [Service Type] is scheduled for [Date] at [Time].\n\nWe will arrive at the scheduled time. If you need to reschedule, please call us at (650)731-7359.\n\nThank you for choosing Bay Services!"},
+                 {"Service type": "General Inquiry Response", "Message": "Hi [Client Name],\n\nThank you for your interest in Bay Services! We provide professional cleaning services including:\n\n• Air Duct Cleaning - $340 (up to 10 vents)\n• Dryer Vent Cleaning - $139\n• Chimney/Fireplace Cleaning - $169\n• Kitchen Exhaust Cleaning - $199-$499\n• Bath Fan Cleaning - $49 each\n• Furnace Cleaning - $75\n• AC Unit Cleaning - $199\n\nAll services include free inspections of other systems!\n\n📞 Call/text us at (650)731-7359 to schedule your appointment."}
             ],
             serviceInfo: [
                 {"SERVICE":"Dryer Vent Cleaning","WHEN IT NEEDS":"• Clothes take longer to dry.\n• Dryer feels very hot or shuts off due to overheating.\n• Burning smell or visible lint around the dryer.\n• Lint is blowing back inside or you see lint around the outside vent.","SERVICE FREQUENCY":"• Once a year\n• Every 6 months if the dryer is used frequently (more than 4 times a week) or if there are pets in the house.","SERVICE METHODS":"• Rotary brush","SERVICE STAGES":"• Inspection\n• Interior Cleaning\n• Airflow Measurement\n• Exterior Cleaning (If Required)","SERVICE DURATION":"30 mins","NOTES":""},
@@ -1069,6 +1059,46 @@
             document.getElementById('management-schedule').innerHTML = createScheduleTable(dataStore.managementSchedule, mgmtHeaders, 'mgmt');
         }
 
+        function renderCompactSchedules() {
+            // Compact Dispatching Schedule
+            const dispatchContainer = document.getElementById('dashboard-dispatching-schedule');
+            if (dispatchContainer) {
+                let html = '<div class="space-y-2">';
+                dataStore.dispatchingSchedule.forEach(day => {
+                    html += `<div class="flex justify-between items-center py-1 border-b border-gray-100">`;
+                    html += `<span class="font-medium text-gray-700">${day.Days}</span>`;
+                    html += `<div class="text-xs text-gray-600">`;
+                    Object.keys(day).forEach(key => {
+                        if (key !== 'Days' && day[key] && day[key] !== 'OFF') {
+                            html += `<span class="mr-2">${key}: ${day[key]}</span>`;
+                        }
+                    });
+                    html += `</div></div>`;
+                });
+                html += '</div>';
+                dispatchContainer.innerHTML = html;
+            }
+
+            // Compact Management Schedule
+            const mgmtContainer = document.getElementById('dashboard-management-schedule');
+            if (mgmtContainer) {
+                let html = '<div class="space-y-2">';
+                dataStore.managementSchedule.forEach(day => {
+                    html += `<div class="flex justify-between items-center py-1 border-b border-gray-100">`;
+                    html += `<span class="font-medium text-gray-700">${day.Days}</span>`;
+                    html += `<div class="text-xs text-gray-600">`;
+                    Object.keys(day).forEach(key => {
+                        if (key !== 'Days' && day[key] && day[key] !== 'OFF') {
+                            html += `<span class="mr-2">${key}: ${day[key]}</span>`;
+                        }
+                    });
+                    html += `</div></div>`;
+                });
+                html += '</div>';
+                mgmtContainer.innerHTML = html;
+            }
+        }
+
         function saveSchedules() {
             const dispatchHeaders = ["Days", "Vuqar/David", "Kanan/Kenny", "Nahida/Emma", "Narmina/Nora", "Orxan/Eric"];
             dataStore.dispatchingSchedule.forEach((row, rowIndex) => {
@@ -1094,12 +1124,45 @@
 
         // --- MAP ---
         function initializeMap() {
-            map = L.map('map').setView([36.7783, -119.4179], 6); // Centered on California
+            // Centered on San Francisco Bay Area
+            map = L.map('map').setView([37.7749, -122.4194], 10); // San Francisco coordinates, zoom level 10 for Bay Area
 
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 maxZoom: 19,
                 attribution: '© OpenStreetMap'
             }).addTo(map);
+
+            // Add Bay Area boundaries
+            const bayAreaBounds = L.rectangle([
+                [37.2, -122.8], // Southwest corner
+                [38.2, -121.8]  // Northeast corner
+            ], {
+                color: '#7EB2DD',
+                weight: 2,
+                fillColor: '#7EB2DD',
+                fillOpacity: 0.1
+            }).addTo(map);
+
+            // Add major Bay Area cities markers
+            const cities = [
+                {name: 'San Francisco', coords: [37.7749, -122.4194]},
+                {name: 'Oakland', coords: [37.8044, -122.2712]},
+                {name: 'San Jose', coords: [37.3382, -121.8863]},
+                {name: 'Berkeley', coords: [37.8715, -122.2730]},
+                {name: 'Fremont', coords: [37.5483, -121.9886]},
+                {name: 'Hayward', coords: [37.6688, -122.0808]},
+                {name: 'Concord', coords: [37.9780, -122.0311]},
+                {name: 'Sunnyvale', coords: [37.3688, -122.0363]},
+                {name: 'Santa Clara', coords: [37.3541, -121.9552]},
+                {name: 'Palo Alto', coords: [37.4419, -122.1430]}
+            ];
+
+            cities.forEach(city => {
+                L.marker(city.coords)
+                    .addTo(map)
+                    .bindPopup(`<b>${city.name}</b><br>Bay Area Service Area`)
+                    .openPopup();
+            });
 
             const provider = new GeoSearch.OpenStreetMapProvider();
             const searchControl = new GeoSearch.GeoSearchControl({
@@ -1118,6 +1181,7 @@
         // --- INITIALIZATION ---
         document.addEventListener('DOMContentLoaded', () => {
             renderSchedules();
+            renderCompactSchedules(); // Add compact schedule to dashboard
             renderPropertyManagement();
             renderOutstandingPayments();
             renderAutoAnswers();
@@ -1287,84 +1351,149 @@
             showNotification(`Right browser: Opening ${url}`);
         }
 
-        // Initialize browsers with default URLs
+        // Initialize single browser
         function initializeBrowsers() {
-            // Set default URLs for both browsers
-            const urlInput1 = document.getElementById('urlInput1');
-            const urlInput2 = document.getElementById('urlInput2');
-            
-            if (urlInput1) {
-                urlInput1.value = 'https://www.google.com';
-            }
-            if (urlInput2) {
-                urlInput2.value = 'https://www.google.com';
+            // Set default URL for browser
+            const urlInput = document.getElementById('urlInput');
+            if (urlInput) {
+                urlInput.value = 'https://www.google.com';
             }
             
             // Add iframe load event listeners
-            const iframe1 = document.getElementById('browser1');
-            const iframe2 = document.getElementById('browser2');
-            
-            if (iframe1) {
-                iframe1.addEventListener('load', () => {
-                    showNotification('Left browser loaded');
+            const iframe = document.getElementById('browser');
+            if (iframe) {
+                iframe.addEventListener('load', () => {
+                    showNotification('Browser loaded');
                 });
-                iframe1.addEventListener('error', () => {
-                    showNotification('Left browser failed to load');
+                iframe.addEventListener('error', () => {
+                    showNotification('Browser failed to load');
                 });
             }
             
-            if (iframe2) {
-                iframe2.addEventListener('load', () => {
-                    showNotification('Right browser loaded');
-                });
-                iframe2.addEventListener('error', () => {
-                    showNotification('Right browser failed to load');
-                });
+            // Initialize activity tracking
+            const lastActivityEl = document.getElementById('last-activity');
+            if (lastActivityEl) {
+                lastActivityEl.textContent = 'Just now';
             }
         }
 
-        // --- SIMPLE BROWSER FUNCTIONS ---
+        // --- SINGLE BROWSER FUNCTIONS ---
         const platformUrls = {
             gmail: 'https://accounts.google.com/signin?continue=https://mail.google.com',
             housecall: 'https://app.housecallpro.com/login',
             yelp: 'https://biz.yelp.com/login',
-            thumbtack: 'https://www.thumbtack.com/login'
+            thumbtack: 'https://www.thumbtack.com/login',
+            google: 'https://www.google.com',
+            calendar: 'https://calendar.google.com',
+            drive: 'https://drive.google.com',
+            maps: 'https://maps.google.com'
         };
 
-        // Simple Platform Functions
-        function openPlatform(browserNum, platform) {
-            const iframe = document.getElementById(`browser${browserNum}`);
-            const urlInput = document.getElementById(`urlInput${browserNum}`);
-            const url = platformUrls[platform];
+        let platformAccessCount = 0;
+
+        // Single Browser Functions
+        function refreshBrowser() {
+            const iframe = document.getElementById('browser');
+            if (!iframe) {
+                showNotification('Error: Browser not found');
+                return;
+            }
+            try {
+                iframe.src = iframe.src;
+                showNotification('Browser refreshed');
+            } catch (error) {
+                showNotification('Error refreshing browser: ' + error.message);
+            }
+        }
+
+        function goBackBrowser() {
+            const iframe = document.getElementById('browser');
+            if (!iframe) {
+                showNotification('Error: Browser not found');
+                return;
+            }
+            try {
+                iframe.contentWindow.history.back();
+                showNotification('Browser: Go back');
+            } catch (error) {
+                showNotification('Cannot navigate back (cross-origin restriction)');
+            }
+        }
+
+        function goForwardBrowser() {
+            const iframe = document.getElementById('browser');
+            if (!iframe) {
+                showNotification('Error: Browser not found');
+                return;
+            }
+            try {
+                iframe.contentWindow.history.forward();
+                showNotification('Browser: Go forward');
+            } catch (error) {
+                showNotification('Cannot navigate forward (cross-origin restriction)');
+            }
+        }
+
+        function navigateBrowser() {
+            const urlInput = document.getElementById('urlInput');
+            const iframe = document.getElementById('browser');
             
-            if (!iframe || !urlInput) {
+            if (!urlInput || !iframe) {
                 showNotification('Error: Browser elements not found');
                 return;
             }
             
+            const url = urlInput.value.trim();
+            if (!url) {
+                showNotification('Please enter a URL');
+                return;
+            }
+            
+            try {
+                const fullUrl = url.startsWith('http') ? url : 'https://' + url;
+                iframe.src = fullUrl;
+                showNotification(`Browser: Navigating to ${url}`);
+            } catch (error) {
+                showNotification('Error navigating to URL: ' + error.message);
+            }
+        }
+
+        function handleUrlInput(event) {
+            if (event.key === 'Enter') {
+                navigateBrowser();
+            }
+        }
+
+        function openPlatformInNewWindow(platform) {
+            const url = platformUrls[platform];
             if (!url) {
                 showNotification('Error: Platform URL not found');
                 return;
             }
             
-            iframe.src = url;
-            urlInput.value = url;
-            
-            showNotification(`Browser ${browserNum}: Opening ${platform}`);
-        }
-
-        function openPlatformInNewWindow(browserNum, platform) {
-            const url = platformUrls[platform];
-            const windowName = `Browser${browserNum}_${platform}`;
-            
+            const windowName = `BayServices_${platform}`;
             const newWindow = window.open(url, windowName, 'width=1200,height=800,scrollbars=yes,resizable=yes,location=yes,menubar=yes,toolbar=yes,noopener=yes');
             
             if (newWindow) {
                 // Set noopener for security
                 newWindow.opener = null;
-                showNotification(`Browser ${browserNum}: Opening ${platform} in new window`);
+                showNotification(`Opening ${platform} in new window`);
+                
+                // Update platform access count
+                platformAccessCount++;
+                const platformCountEl = document.getElementById('platform-count');
+                if (platformCountEl) {
+                    platformCountEl.textContent = platformAccessCount;
+                }
+                
+                // Update last activity
+                const lastActivityEl = document.getElementById('last-activity');
+                if (lastActivityEl) {
+                    lastActivityEl.textContent = new Date().toLocaleTimeString();
+                }
+                
                 // Update URL input to show what was opened
-                const urlInput = document.getElementById(`urlInput${browserNum}`);
+                const urlInput = document.getElementById('urlInput');
                 if (urlInput) {
                     urlInput.value = url;
                 }
