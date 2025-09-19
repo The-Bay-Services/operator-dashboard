@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>The Bay Services - Operator Dashboard</title>
+    <link rel="icon" type="image/x-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏠</text></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Note: For production, install Tailwind CSS locally -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet-geosearch@3.11.0/dist/geosearch.css" />
@@ -317,6 +319,37 @@
             border-color: var(--secondary-color);
             box-shadow: 0 4px 15px rgba(126, 178, 221, 0.3);
         }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--secondary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .iframe-loading {
+            position: relative;
+        }
+        
+        .iframe-loading::after {
+            content: 'Loading...';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px 20px;
+            border-radius: 5px;
+            z-index: 10;
+        }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -477,7 +510,7 @@
                         </div>
                         
                         <!-- Browser Content -->
-                        <iframe id="browser1" src="https://accounts.google.com/signin" class="w-full h-full border-0" style="height: calc(100% - 120px);"></iframe>
+                        <iframe id="browser1" src="about:blank" class="w-full h-full border-0" style="height: calc(100% - 120px);" sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"></iframe>
                     </div>
 
                     <!-- Right Browser -->
@@ -513,7 +546,7 @@
                         </div>
                         
                         <!-- Browser Content -->
-                        <iframe id="browser2" src="https://accounts.google.com/signin" class="w-full h-full border-0" style="height: calc(100% - 120px);"></iframe>
+                        <iframe id="browser2" src="about:blank" class="w-full h-full border-0" style="height: calc(100% - 120px);" sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"></iframe>
                     </div>
                 </div>
 
@@ -1110,18 +1143,38 @@
 
         function refreshBrowser1() {
             const iframe = document.getElementById('browser1');
-            iframe.src = iframe.src;
-            showNotification('Left browser refreshed');
+            if (!iframe) {
+                showNotification('Error: Left browser not found');
+                return;
+            }
+            try {
+                iframe.src = iframe.src;
+                showNotification('Left browser refreshed');
+            } catch (error) {
+                showNotification('Error refreshing left browser: ' + error.message);
+            }
         }
 
         function refreshBrowser2() {
             const iframe = document.getElementById('browser2');
-            iframe.src = iframe.src;
-            showNotification('Right browser refreshed');
+            if (!iframe) {
+                showNotification('Error: Right browser not found');
+                return;
+            }
+            try {
+                iframe.src = iframe.src;
+                showNotification('Right browser refreshed');
+            } catch (error) {
+                showNotification('Error refreshing right browser: ' + error.message);
+            }
         }
 
         function goBackBrowser1() {
             const iframe = document.getElementById('browser1');
+            if (!iframe) {
+                showNotification('Error: Left browser not found');
+                return;
+            }
             try {
                 iframe.contentWindow.history.back();
                 showNotification('Left browser: Go back');
@@ -1161,20 +1214,50 @@
         }
 
         function navigateBrowser1() {
-            const url = document.getElementById('urlInput1').value;
-            if (url) {
-                const iframe = document.getElementById('browser1');
-                iframe.src = url.startsWith('http') ? url : 'https://' + url;
+            const urlInput = document.getElementById('urlInput1');
+            const iframe = document.getElementById('browser1');
+            
+            if (!urlInput || !iframe) {
+                showNotification('Error: Browser elements not found');
+                return;
+            }
+            
+            const url = urlInput.value.trim();
+            if (!url) {
+                showNotification('Please enter a URL');
+                return;
+            }
+            
+            try {
+                const fullUrl = url.startsWith('http') ? url : 'https://' + url;
+                iframe.src = fullUrl;
                 showNotification(`Left browser: Navigating to ${url}`);
+            } catch (error) {
+                showNotification('Error navigating to URL: ' + error.message);
             }
         }
 
         function navigateBrowser2() {
-            const url = document.getElementById('urlInput2').value;
-            if (url) {
-                const iframe = document.getElementById('browser2');
-                iframe.src = url.startsWith('http') ? url : 'https://' + url;
+            const urlInput = document.getElementById('urlInput2');
+            const iframe = document.getElementById('browser2');
+            
+            if (!urlInput || !iframe) {
+                showNotification('Error: Browser elements not found');
+                return;
+            }
+            
+            const url = urlInput.value.trim();
+            if (!url) {
+                showNotification('Please enter a URL');
+                return;
+            }
+            
+            try {
+                const fullUrl = url.startsWith('http') ? url : 'https://' + url;
+                iframe.src = fullUrl;
                 showNotification(`Right browser: Navigating to ${url}`);
+            } catch (error) {
+                showNotification('Error navigating to URL: ' + error.message);
             }
         }
 
@@ -1207,8 +1290,37 @@
         // Initialize browsers with default URLs
         function initializeBrowsers() {
             // Set default URLs for both browsers
-            document.getElementById('urlInput1').value = 'https://accounts.google.com/signin';
-            document.getElementById('urlInput2').value = 'https://accounts.google.com/signin';
+            const urlInput1 = document.getElementById('urlInput1');
+            const urlInput2 = document.getElementById('urlInput2');
+            
+            if (urlInput1) {
+                urlInput1.value = 'https://www.google.com';
+            }
+            if (urlInput2) {
+                urlInput2.value = 'https://www.google.com';
+            }
+            
+            // Add iframe load event listeners
+            const iframe1 = document.getElementById('browser1');
+            const iframe2 = document.getElementById('browser2');
+            
+            if (iframe1) {
+                iframe1.addEventListener('load', () => {
+                    showNotification('Left browser loaded');
+                });
+                iframe1.addEventListener('error', () => {
+                    showNotification('Left browser failed to load');
+                });
+            }
+            
+            if (iframe2) {
+                iframe2.addEventListener('load', () => {
+                    showNotification('Right browser loaded');
+                });
+                iframe2.addEventListener('error', () => {
+                    showNotification('Right browser failed to load');
+                });
+            }
         }
 
         // --- SIMPLE BROWSER FUNCTIONS ---
@@ -1222,10 +1334,21 @@
         // Simple Platform Functions
         function openPlatform(browserNum, platform) {
             const iframe = document.getElementById(`browser${browserNum}`);
+            const urlInput = document.getElementById(`urlInput${browserNum}`);
             const url = platformUrls[platform];
             
+            if (!iframe || !urlInput) {
+                showNotification('Error: Browser elements not found');
+                return;
+            }
+            
+            if (!url) {
+                showNotification('Error: Platform URL not found');
+                return;
+            }
+            
             iframe.src = url;
-            document.getElementById(`urlInput${browserNum}`).value = url;
+            urlInput.value = url;
             
             showNotification(`Browser ${browserNum}: Opening ${platform}`);
         }
@@ -1234,12 +1357,17 @@
             const url = platformUrls[platform];
             const windowName = `Browser${browserNum}_${platform}`;
             
-            const newWindow = window.open(url, windowName, 'width=1200,height=800,scrollbars=yes,resizable=yes,location=yes,menubar=yes,toolbar=yes');
+            const newWindow = window.open(url, windowName, 'width=1200,height=800,scrollbars=yes,resizable=yes,location=yes,menubar=yes,toolbar=yes,noopener=yes');
             
             if (newWindow) {
+                // Set noopener for security
+                newWindow.opener = null;
                 showNotification(`Browser ${browserNum}: Opening ${platform} in new window`);
                 // Update URL input to show what was opened
-                document.getElementById(`urlInput${browserNum}`).value = url;
+                const urlInput = document.getElementById(`urlInput${browserNum}`);
+                if (urlInput) {
+                    urlInput.value = url;
+                }
             } else {
                 showNotification('Popup blocked! Please allow popups for this site and try again.');
             }
@@ -1247,4 +1375,3 @@
     </script>
 </body>
 </html>
-
