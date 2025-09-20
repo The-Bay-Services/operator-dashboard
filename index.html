@@ -1,722 +1,535 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The Bay Services Dashboard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
-        .tab-button {
-            transition: all 0.3s ease;
-            position: relative;
-        }
-        .tab-button.active::after {
-            content: '';
-            position: absolute;
-            bottom: -2px;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background-color: #3b82f6;
-        }
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: rgba(0, 0, 0, 0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-        }
-        .modal-content {
-            background-color: white;
-            padding: 2rem;
-            border-radius: 0.5rem;
-            max-width: 500px;
-            width: 100%;
-        }
-        .table-cell-editable {
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        .table-cell-editable:hover {
-            background-color: #f0f8ff;
-        }
-    </style>
-</head>
-<body>
-    <div id="root"></div>
+import React, { useState, useEffect, useMemo } from 'react';
+import { User, Briefcase, FileUp, Download, Building2, ClipboardCopy, CircleDollarSign, PlusCircle, Trash2, X, Search, Clock, Users, Sun, Moon } from 'lucide-react';
 
-    <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
-    <!-- Firebase SDKs -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-        import { getFirestore, collection, doc, getDocs, setDoc, onSnapshot, writeBatch, updateDoc, deleteDoc, addDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-        
-        window.firebase = {
-            initializeApp,
-            getFirestore,
-            collection,
-            doc,
-            getDocs,
-            setDoc,
-            onSnapshot,
-            writeBatch,
-            getAuth,
-            signInAnonymously,
-            onAuthStateChanged,
-            updateDoc,
-            deleteDoc,
-            addDoc,
-            getDoc,
-            signInWithCustomToken
-        };
-    </script>
+// --- ДАННЫЕ ПРИЛОЖЕНИЯ ---
+// В реальном Next.js приложении эти данные загружались бы с API, но здесь они встроены напрямую.
 
+const dispatchingScheduleData = [
+    { "Days": "Monday", "Vuqar/David": "8:00 AM-11:00 AM", "Kanan/Kenny": "11:00 AM-1:00 PM", "Nahida/Emma": "1:00 PM-3:00 PM", "Narmina/Nora": "3:00 PM-8:00 PM", "Orxan/Eric": "8:00 PM-10:00 PM" },
+    { "Days": "Tuesday", "Vuqar/David": "8:00 AM-11:00 AM", "Kanan/Kenny": "11:00 AM-1:00 PM", "Nahida/Emma": "1:00 PM-3:00 PM", "Narmina/Nora": "3:00 PM-8:00 PM", "Orxan/Eric": "8:00 PM-10:00 PM" },
+    { "Days": "Wednesday", "Vuqar/David": "8:00 AM-11:00 AM", "Kanan/Kenny": "11:00 AM-1:00 PM", "Nahida/Emma": "1:00 PM-3:00 PM", "Narmina/Nora": "3:00 PM-8:00 PM", "Orxan/Eric": "8:00 PM-10:00 PM" },
+    { "Days": "Thursday", "Vuqar/David": "8:00 AM-11:00 AM", "Kanan/Kenny": "11:00 AM-1:00 PM", "Nahida/Emma": "1:00 PM-3:00 PM", "Narmina/Nora": "3:00 PM-8:00 PM", "Orxan/Eric": "8:00 PM-10:00 PM" },
+    { "Days": "Friday", "Vuqar/David": "8:00 AM-11:00 AM", "Kanan/Kenny": "11:Й00 AM-1:00 PM", "Nahida/Emma": "1:00 PM-3:00 PM", "Narmina/Nora": "3:00 PM-8:00 PM", "Orxan/Eric": "8:00 PM-10:00 PM" },
+    { "Days": "Saturday", "Vuqar/David": "OFF", "Kanan/Kenny": "8:00 AM-7:00 PM", "Nahida/Emma": "OFF", "Narmina/Nora": "OFF", "Orxan/Eric": "OFF" },
+    { "Days": "Sunday", "Vuqar/David": "OFF", "Kanan/Kenny": "OFF", "Nahida/Emma": "8:00 AM-7:00 PM", "Narmina/Nora": "OFF", "Orxan/Eric": "OFF" }
+];
 
-    <script type="text/babel" data-presets="react">
-        const { useState, useEffect, useCallback, useMemo, Fragment } = React;
-        
-        // --- Firebase Config ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyDLuxy6E6pOA6HYjeD6qp_5r0ANleHCnp8",
-            authDomain: "the-bay-services.firebaseapp.com",
-            projectId: "the-bay-services",
-            storageBucket: "the-bay-services.firebasestorage.app",
-            messagingSenderId: "194632911643",
-            appId: "1:194632911643:web:44ddedf76d4bc503c6a1be",
-            measurementId: "G-92QZ39WTVR"
-        };
-        
-        // --- Initial Data from CSVs (will be uploaded to Firebase once) ---
-        const initialDispatchSchedule = [
-            { day: 'Monday', 'Vuqar/David': '8:00-11:00 AM', 'Kanan/Kenny': '11:00 AM-1:00 PM', 'Nahida/Emma': '1:00-3:00 PM', 'Narmina/Nora': '3:00-8:00 PM', 'Orxan/Eric': '8:00-10:00 PM' },
-            { day: 'Tuesday', 'Vuqar/David': '8:00-11:00 AM', 'Kanan/Kenny': '11:00 AM-1:00 PM', 'Nahida/Emma': '1:00-3:00 PM', 'Narmina/Nora': '3:00-8:00 PM', 'Orxan/Eric': '8:00-10:00 PM' },
-            { day: 'Wednesday', 'Vuqar/David': '8:00-11:00 AM', 'Kanan/Kenny': '11:00 AM-1:00 PM', 'Nahida/Emma': '1:00-3:00 PM', 'Narmina/Nora': '3:00-8:00 PM', 'Orxan/Eric': '8:00-10:00 PM' },
-            { day: 'Thursday', 'Vuqar/David': '8:00-11:00 AM', 'Kanan/Kenny': '11:00 AM-1:00 PM', 'Nahida/Emma': '1:00-3:00 PM', 'Narmina/Nora': '3:00-8:00 PM', 'Orxan/Eric': '8:00-10:00 PM' },
-            { day: 'Friday', 'Vuqar/David': '8:00-11:00 AM', 'Kanan/Kenny': '11:00 AM-1:00 PM', 'Nahida/Emma': '1:00-3:00 PM', 'Narmina/Nora': '3:00-8:00 PM', 'Orxan/Eric': '8:00-10:00 PM' },
-            { day: 'Saturday', 'Vuqar/David': 'OFF', 'Kanan/Kenny': '08:00AM-07:00PM', 'Nahida/Emma': 'OFF', 'Narmina/Nora': 'OFF', 'Orxan/Eric': 'OFF' },
-            { day: 'Sunday', 'Vuqar/David': 'OFF', 'Kanan/Kenny': 'OFF', 'Nahida/Emma': 'OFF', 'Narmina/Nora': 'OFF', 'Orxan/Eric': 'OFF' }
-        ];
+const managementScheduleData = [
+    { "Days": "Monday", "Vuqar/David": "8:00 AM-12:00 PM", "Nahida/Emma": "12:00 PM-4:00 PM" },
+    { "Days": "Tuesday", "Vuqar/David": "8:00 AM-12:00 PM", "Nahida/Emma": "12:00 PM-4:00 PM" },
+    { "Days": "Wednesday", "Vuqar/David": "8:00 AM-12:00 PM", "Nahida/Emma": "12:00 PM-4:00 PM" },
+    { "Days": "Thursday", "Vuqar/David": "8:00 AM-12:00 PM", "Nahida/Emma": "12:00 PM-4:00 PM" },
+    { "Days": "Friday", "Vuqar/David": "8:00 AM-12:00 PM", "Nahida/Emma": "12:00 PM-4:00 PM" },
+    { "Days": "Saturday", "Vuqar/David": "OFF", "Nahida/Emma": "OFF" },
+    { "Days": "Sunday", "Vuqar/David": "OFF", "Nahida/Emma": "OFF" }
+];
 
-        const initialManagementSchedule = [
-            { day: 'Monday', 'Vuqar/David': '8:00 AM-12:00 PM', 'Nahida/Emma': '12:00-4:00 PM' },
-            { day: 'Tuesday', 'Vuqar/David': '8:00 AM-12:00 PM', 'Nahida/Emma': '12:00-4:00 PM' },
-            { day: 'Wednesday', 'Vuqar/David': '8:00 AM-12:00 PM', 'Nahida/Emma': '12:00-4:00 PM' },
-            { day: 'Thursday', 'Vuqar/David': '8:00 AM-12:00 PM', 'Nahida/Emma': '12:00-4:00 PM' },
-            { day: 'Friday', 'Vuqar/David': '8:00 AM-12:00 PM', 'Nahida/Emma': '12:00-4:00 PM' },
-            { day: 'Saturday', 'Vuqar/David': 'OFF', 'Nahida/Emma': 'OFF' },
-            { day: 'Sunday', 'Vuqar/David': 'OFF', 'Nahida/Emma': 'OFF' }
-        ];
+const autoAnswersData = [
+    { "Service type": "Air Duct cleaning", "Message": "Hi [Client Name],\n\nThis is {operatorName} with Bay Services and thank you for considering Air Duct cleaning services with us.\n\n1️⃣— The price of the deep cleaning is $340 up to 10 registers/ducts. Price includes cleaning & sanitizing intake and return duct & vents.\n\n2️⃣ — After 10 vents the price for each vent is $25\n\n3️⃣ — Please kindly note that you will always get a free dryer vent, kitchen exhaust/range and chimney/fireplace inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment." },
+    { "Service type": "Chimney /fireplace cleaning", "Message": "Hi [Client Name],\n\nThis is {operatorName} with Bay Services and thank you for considering Chimney/fireplace cleaning services with us.\n\n1️⃣ — The price of the chimney / fireplace inspection and cleaning will be $169.\n\n2️⃣ — Please kindly note that you will always get a free dryer vent, kitchen exhaust/range and HVAC vents/registers inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment." },
+    { "Service type": "Dryer vent cleaning", "Message": "Hi [Client Name],\n\nThis is {operatorName} with Bay Services and thank you for considering dryer vent & duct cleaning services with us.\n\n1️⃣ -- The price of a dryer vent cleaning will be $139\n\n2️⃣ -- Please kindly note that you will always get a free chimney / fireplace, kitchen exhaust/range and HVAC vents/registers inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment." },
+    { "Service type": "Outstanding Payment Request", "Message": "Hi [Client Name],\n\nThis is {operatorName} with Bay Services. Hope you're doing well.\n\nI’m reaching out about the outstanding payment for invoice #[Invoice #]. We’d appreciate it if you could arrange payment at your earliest convenience.\n\nThank you!\n\n{operatorName} from Bay Services" },
+    { "Service type": "AFTER SERVICE FOLLOW-UP MESSAGE", "Message": "Hi [Client Name],\n\nThis is {operatorName} with Bay Services. I’m reaching out for a after-service follow-up regarding today’s appointment.\n\nCould you please confirm everything went smoothly and share if you have any feedback?\n\nThank you!" }
+];
 
-        const initialOutstandingPayments = [
-          { id: '1', customerName: 'HONEY HOMES', phoneNumber: '', email: '', amountDue: '339', invoiceStatus: 'SENT', hcpInvoice: '9634', invoiceDate: '2025-09-15', lastContactDate: '', paymentStatus: 'PAID', duePeriod: '2', note: '' },
-          { id: '2', customerName: 'W2 PROPERTIES #205', phoneNumber: '', email: 'noe@w2propertymgt.com', amountDue: '749.76', invoiceStatus: 'SENT', hcpInvoice: '9621', invoiceDate: '2025-09-12', lastContactDate: '', paymentStatus: 'OUTSTANDING', duePeriod: '5', note: '' },
-          { id: '3', customerName: 'Joann Dethman', phoneNumber: '(650) 269-0659', email: 'joanndethman@gmail.com', amountDue: '339', invoiceStatus: 'SENT', hcpInvoice: '9577', invoiceDate: '2025-09-15', lastContactDate: '', paymentStatus: 'OUTSTANDING', duePeriod: '2', note: '' },
-          { id: '4', customerName: 'Agile Appliance', phoneNumber: '(650) 625-7475', email: '', amountDue: '379', invoiceStatus: 'SENT', hcpInvoice: '9570', invoiceDate: '2025-09-10', lastContactDate: '', paymentStatus: 'OUTSTANDING', duePeriod: '7', note: '' },
-          { id: '5', customerName: 'Tetiana Grinberg', phoneNumber: '(510) 345-9846', email: 'tetiana.grinberg@gmail.com', amountDue: '99', invoiceStatus: 'SENT', hcpInvoice: '9569', invoiceDate: '2025-09-12', lastContactDate: '', paymentStatus: 'OUTSTANDING', duePeriod: '5', note: '' }
-        ];
+const servicesAndPricesData = [
+    { "Service": "Air Duct", "Type": "Cleaning", "Price": "340", "Note": "Up to 10 vents, after each additional $25" },
+    { "Service": "Dryer vent (side-by-side)", "Type": "Cleaning", "Price": "139", "Note": "" },
+    { "Service": "Dryer vent (stacked)", "Type": "Cleaning", "Price": "199", "Note": "" },
+    { "Service": "Chimney /fireplace", "Type": "Cleaning", "Price": "169", "Note": "" },
+    { "Service": "Kitchen exhaust/range", "Type": "Cleaning", "Price": "$199-$499", "Note": "Depend on the level of the grease" },
+    { "Service": "Bath fan", "Type": "Cleaning", "Price": "49", "Note": "Per each; if 2 services and more price is $39" },
+];
 
-        const initialAutoAnswers = [
-            { id: '1', serviceType: 'Air Duct cleaning', message: "Hi ,\n\nThis is Thomas with Bay Services and thank you for considering Air Duct cleaning services with us.\n\n1️⃣— The price of the deep cleaning is $340 up to 10 registers/ducts. Price includes cleaning & sanitizing intake and return duct & vents.\n\n2️⃣ — After 10 vents the price for each vent is $25\n\n3️⃣ — Please kindly note that you will always get a free dryer vent, kitchen exhaust/range and chimney/fireplace inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment." },
-            { id: '2', serviceType: 'Chimney /fireplace cleaning', message: "Hi ,\n\nThis is Thomas with Bay Services and thank you for considering Chimney/fireplace cleaning services with us.\n\n1️⃣ — The price of the chimney / fireplace inspection and cleaning will be $169.\n\n2️⃣ — Please kindly note that you will always get a free dryer vent, kitchen exhaust/range and HVAC vents/registers inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment." },
-            { id: '3', serviceType: 'Dryer vent cleaning', message: "Hi ,\n\nThis is Thomas with Bay Services and thank you for considering dryer vent & duct cleaning services with us.\n\n1️⃣ -- The price of a dryer vent cleaning will be $139\n\n2️⃣ -- Please kindly note that you will always get a free chimney / fireplace, kitchen exhaust/range and HVAC vents/registers inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment." }
-        ];
-        
-        // --- Helper Functions ---
-        const parseTime = (timeStr) => {
-            if (!timeStr || typeof timeStr !== 'string' || timeStr.toLowerCase() === 'off') return null;
-            const cleanTimeStr = timeStr.replace(/\s/g, '').toLowerCase();
-            const [time, period] = cleanTimeStr.match(/(\d{1,2}:\d{2})([ap]m)?/).slice(1);
-            let [hours, minutes] = time.split(':').map(Number);
-            if (period === 'pm' && hours < 12) hours += 12;
-            if (period === 'am' && hours === 12) hours = 0; // Midnight case
-            return { hours, minutes };
-        };
+const serviceInfoData = [
+    {"SERVICE":"Dryer Vent Cleaning","WHEN IT NEEDS":"• Clothes take longer to dry.\n• Dryer feels very hot or shuts off due to overheating.\n• Burning smell or visible lint around the dryer.","SERVICE FREQUENCY":"• Once a year\n• Every 6 months if used frequently.","SERVICE METHODS":"• Rotary brush","SERVICE STAGES":"• Inspection\n• Interior Cleaning\n• Airflow Measurement","SERVICE DURATION":"30 mins"},
+    {"SERVICE":"Air Ducts Cleaning","WHEN IT NEEDS":"• Visible dust blowing from supply vents.\n• Uneven airflow or weak airflow.\n• Allergies, asthma, or respiratory issues increase.","SERVICE FREQUENCY":"• Every 3-5 years","SERVICE METHODS":"• Negative Pressure (Industrial Vacuum)\n• Rotary brush","SERVICE STAGES":"• Covering vents\n• Creating negative pressure\n• Cleaning each vent\n• Sanitizing","SERVICE DURATION":"1-2 hours"},
+    {"SERVICE":"Chimney Sweep","WHEN IT NEEDS":"• Visible soot or creosote buildup.\n• Difficulty starting fires or poor draft.\n• Odors from the fireplace when not in use.","SERVICE FREQUENCY":"• Once a year, before the start of the heating season.","SERVICE METHODS":"• Manual brushing with various brush types.","SERVICE STAGES":"• Inspection of flue, damper, and firebox.\n• Laying down protective coverings.\n• Brushing the flue liner.\n• Cleaning the smoke shelf, chamber, and firebox.","SERVICE DURATION":"45-90 mins"},
+];
 
-        const isCurrentlyOnShift = (timeRange) => {
-            if (!timeRange || timeRange.toLowerCase() === 'off') return false;
-            
-            const now = new Date();
-            const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
-            
-            const parts = timeRange.split('-').map(t => t.trim());
-            if (parts.length !== 2) return false;
+const serviceRecommendationsData = [
+    {"Service":"Dryer Vent Cleaning","Recommendation":"Neglecting the cleaning of your dryer vent can lead to serious consequences. Lint buildup can overheat and ignite, increasing the risk of a fire hazard. A clogged vent also affects your daily life, leading to increased energy usage and longer drying times."},
+    {"Service":"Air Ducts Cleaning","Recommendation":"Dirty air ducts can spread dust, allergens, and other contaminants throughout your home, leading to poor indoor air quality. This can worsen allergy and asthma symptoms and cause respiratory irritation."},
+    {"Service":"Chimney Sweep","Recommendation":"The buildup of creosote can ignite and cause a chimney fire, which can spread to the rest of the house. Also, a dirty chimney can release carbon monoxide into your home, which is a poisonous gas."}
+];
 
-            const start = parseTime(parts[0]);
-            const end = parseTime(parts[1]);
+const propertyManagementData = [
+    {"Company":"Agile Appliance","Invoicing Email":"","Phone":"(650) 625-7475","Representative":"","Position":"","Email":"","Phone 2":"","Discount":"","Note":""},
+    {"Company":"AmeFix Home Solutions","Invoicing Email":"vendor.amefix@gmail.com","Phone":"(978) 715-0348","Representative":"Sarah Scarlet","Position":"","Email":"","Phone 2":"","Discount":"","Note":""},
+    {"Company":"W2 Property Management","Invoicing Email":"noe@w2propertymgt.com","Phone":"415-316-4369","Representative":"Noe de la Cruz","Position":"","Email":"","Phone 2":"","Discount":"","Note":""},
+];
 
-            if (!start || !end) return false;
+const outstandingPaymentsData = [
+    {"id": 1, "Customer name":"W2 PROPERTIES #205","Amount due":"749.76", "status":"OUTSTANDING", "Invoice date": "2025-09-12"},
+    {"id": 2, "Customer name":"Joann Dethman.","Amount due":"339", "status":"OUTSTANDING", "Invoice date": "2025-09-15"},
+    {"id": 3, "Customer name":"Agile Appliance","Amount due":"379", "status":"OUTSTANDING", "Invoice date": "2025-09-10"},
+    {"id": 4, "Customer name":"HONEY HOMES", "Amount due":"339", "status":"PAID", "Invoice date": "2025-09-15"}
+];
 
-            const startTotalMinutes = start.hours * 60 + start.minutes;
-            let endTotalMinutes = end.hours * 60 + end.minutes;
-            
-            // Handle overnight shifts if necessary, though not present in current data
-            if (endTotalMinutes < startTotalMinutes) {
-                endTotalMinutes += 24 * 60;
-            }
+// --- ХУКИ И УТИЛИТЫ ---
+const useCaliforniaTime = () => {
+    const [time, setTime] = useState(new Date());
 
-            return currentTotalMinutes >= startTotalMinutes && currentTotalMinutes < endTotalMinutes;
-        };
+    useEffect(() => {
+        const timerId = setInterval(() => setTime(new Date()), 1000);
+        return () => clearInterval(timerId);
+    }, []);
 
+    const timeZone = 'America/Los_Angeles';
+    const dateFormatter = new Intl.DateTimeFormat('ru-RU', {
+        timeZone,
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+    const timeFormatter = new Intl.DateTimeFormat('en-US', {
+        timeZone,
+        hour: 'numeric',
+        minute: 'numeric',
+        second: 'numeric',
+        hour12: true
+    });
 
-        // --- Main Application Components ---
-        
-        function App() {
-            const [role, setRole] = useState(null);
-            const [loading, setLoading] = useState(true);
-            const [db, setDb] = useState(null);
-            const [auth, setAuth] = useState(null);
-            const [user, setUser] = useState(null);
+    return {
+        dateString: dateFormatter.format(time),
+        timeString: timeFormatter.format(time),
+        currentDate: time
+    };
+};
 
-            useEffect(() => {
-                const app = window.firebase.initializeApp(firebaseConfig);
-                const firestoreDb = window.firebase.getFirestore(app);
-                const firebaseAuth = window.firebase.getAuth(app);
-                setDb(firestoreDb);
-                setAuth(firebaseAuth);
-                
-                const unsubscribe = window.firebase.onAuthStateChanged(firebaseAuth, async (currentUser) => {
-                    if (currentUser) {
-                        setUser(currentUser);
-                        // Check if data is seeded, if not, seed it.
-                        const seededDocRef = window.firebase.doc(firestoreDb, "app_config", "isDataSeeded");
-                        const docSnap = await window.firebase.getDoc(seededDocRef);
-                        if (!docSnap.exists()) {
-                            console.log("First time setup: Seeding initial data to Firebase...");
-                            await seedData(firestoreDb);
-                            await window.firebase.setDoc(seededDocRef, { seeded: true });
-                            console.log("Data seeding complete.");
-                        }
-                    }
-                    setLoading(false);
-                });
-                
-                // Sign in logic
-                const signIn = async () => {
-                    try {
-                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                           await window.firebase.signInWithCustomToken(firebaseAuth, __initial_auth_token);
-                        } else {
-                           await window.firebase.signInAnonymously(firebaseAuth);
-                        }
-                    } catch (error) {
-                         console.error("Authentication failed:", error);
-                         setLoading(false);
-                    }
-                };
-                
-                signIn();
+// --- КОМПОНЕНТЫ ИНТЕРФЕЙСА ---
 
-                return () => unsubscribe();
-            }, []);
-            
-            const seedData = async (firestoreDb) => {
-              const batch = window.firebase.writeBatch(firestoreDb);
-              
-              initialDispatchSchedule.forEach((item, index) => {
-                  const docRef = window.firebase.doc(firestoreDb, "dispatch_schedule", `day_${index}`);
-                  batch.set(docRef, item);
-              });
-
-              initialManagementSchedule.forEach((item, index) => {
-                  const docRef = window.firebase.doc(firestoreDb, "management_schedule", `day_${index}`);
-                  batch.set(docRef, item);
-              });
-              
-              initialOutstandingPayments.forEach((item) => {
-                  const docRef = window.firebase.doc(firestoreDb, "outstanding_payments", item.id);
-                  batch.set(docRef, item);
-              });
-              
-              initialAutoAnswers.forEach((item) => {
-                  const docRef = window.firebase.doc(firestoreDb, "automatic_answers", item.id);
-                  batch.set(docRef, item);
-              });
-              
-              await batch.commit();
-            };
-
-            if (loading || !user) {
-                return (
-                    <div className="flex items-center justify-center min-h-screen">
-                        <div className="text-xl font-semibold">Загрузка данных...</div>
-                    </div>
-                );
-            }
-
-            if (!role) {
-                return <RoleSelectionScreen onSelectRole={setRole} />;
-            }
-            
-            const pageProps = { onSwitchRole: setRole, db: db };
-
-            return (
-                <div className="p-4 md:p-8 bg-gray-100 min-h-screen">
-                    {role === 'operator' && <OperatorPage {...pageProps} />}
-                    {role === 'management' && <ManagementPage {...pageProps} />}
-                </div>
-            );
-        }
-
-        const RoleSelectionScreen = ({ onSelectRole }) => (
-            <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
-                <div className="bg-white p-8 rounded-lg shadow-lg text-center">
-                    <h1 className="text-2xl font-bold mb-6">Выберите вашу роль</h1>
-                    <div className="space-y-4">
-                        <button onClick={() => onSelectRole('operator')} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg transition-transform transform hover:scale-105">
-                            <i className="fas fa-headset mr-2"></i> Оператор
-                        </button>
-                        <button onClick={() => onSelectRole('management')} className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg transition-transform transform hover:scale-105">
-                             <i className="fas fa-user-tie mr-2"></i> Менеджмент
-                        </button>
-                    </div>
+const RoleSelectionScreen = ({ onSelectRole }) => {
+    return (
+        <div className="flex items-center justify-center h-screen bg-gray-100">
+            <div className="text-center p-10 bg-white rounded-2xl shadow-xl">
+                <img src="https://thebayservices.com/wp-content/uploads/2022/07/bay-services-logo-300x100.png" alt="Logo" className="mx-auto mb-8" />
+                <h1 className="text-3xl font-bold text-gray-800 mb-4">Добро пожаловать</h1>
+                <p className="text-gray-600 mb-8">Пожалуйста, выберите свою роль для продолжения</p>
+                <div className="flex justify-center gap-4">
+                    <button onClick={() => onSelectRole('operator')} className="flex items-center gap-2 bg-blue-500 text-white font-semibold py-3 px-6 rounded-lg hover:bg-blue-600 transition-transform transform hover:scale-105">
+                        <User size={20} /> Оператор
+                    </button>
+                    <button onClick={() => onSelectRole('management')} className="flex items-center gap-2 bg-gray-700 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-800 transition-transform transform hover:scale-105">
+                        <Briefcase size={20} /> Менеджер
+                    </button>
                 </div>
             </div>
-        );
+        </div>
+    );
+};
+
+const Dashboard = ({ schedules, setSchedules }) => {
+    const { dateString, timeString, currentDate } = useCaliforniaTime();
+    
+    const parseTime = (timeStr, date) => {
+        if (!timeStr || timeStr.toLowerCase() === 'off') return null;
+        const [time, period] = timeStr.split(' ');
+        let [hours, minutes] = time.split(':');
+        hours = parseInt(hours);
+        minutes = parseInt(minutes) || 0;
         
-        const AppHeader = ({ role, onSwitchRole, dispatchSchedule, managementSchedule }) => {
-            const [currentTime, setCurrentTime] = useState(new Date());
-            const [weather, setWeather] = useState(null);
+        if (period && period.toLowerCase() === 'pm' && hours < 12) {
+            hours += 12;
+        }
+        if (period && period.toLowerCase() === 'am' && hours === 12) {
+            hours = 0;
+        }
+        
+        const newDate = new Date(date);
+        newDate.setHours(hours, minutes, 0, 0);
+        return newDate;
+    };
 
-            useEffect(() => {
-                const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-                return () => clearInterval(timer);
-            }, []);
+    const currentlyWorking = useMemo(() => {
+        const dayOfWeek = currentDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', weekday: 'long' });
+        const working = { operators: [], managers: [] };
 
-            useEffect(() => {
-                const fetchWeather = async () => {
-                    try {
-                        const response = await fetch('https://api.open-meteo.com/v1/forecast?latitude=37.35&longitude=-121.95&current_weather=true&temperature_unit=fahrenheit');
-                        const data = await response.json();
-                        if (data && data.current_weather) {
-                            setWeather({
-                                temp: Math.round(data.current_weather.temperature),
-                                code: data.current_weather.weathercode,
-                            });
+        const checkSchedule = (schedule, role) => {
+            const todaySchedule = schedule.find(s => s.Days === dayOfWeek);
+            if (todaySchedule) {
+                Object.entries(todaySchedule).forEach(([name, timeRange]) => {
+                    if (name !== 'Days' && timeRange.toLowerCase() !== 'off') {
+                        const [startStr, endStr] = timeRange.replace(/am|pm/gi, '').split('-');
+                        const startTime = parseTime(startStr + timeRange.match(/am|pm/i)?.[0], currentDate);
+                        const endTime = parseTime(endStr + timeRange.match(/am|pm/i)?.[0], currentDate);
+                         if (startTime && endTime && currentDate >= startTime && currentDate <= endTime) {
+                            if (role === 'operator') working.operators.push(name);
+                            else working.managers.push(name);
                         }
-                    } catch (error) {
-                        console.error("Не удалось загрузить погоду:", error);
                     }
-                };
-                fetchWeather();
-            }, []);
-
-            const getWeatherIcon = (code) => {
-                if (code <= 1) return 'fa-sun'; // Clear sky
-                if (code <= 3) return 'fa-cloud-sun'; // Partly cloudy
-                if (code <= 48) return 'fa-cloud'; // Overcast/Fog
-                if (code <= 67) return 'fa-cloud-rain'; // Rain
-                if (code <= 77) return 'fa-snowflake'; // Snow
-                if (code >= 80) return 'fa-cloud-showers-heavy'; // Showers
-                if (code > 90) return 'fa-bolt'; // Thunderstorm
-                return 'fa-smog';
-            };
-            
-            const onDutyNow = useMemo(() => {
-                const schedule = role === 'operator' ? dispatchSchedule : managementSchedule;
-                if (!schedule || schedule.length === 0) return "Информация о сменах недоступна";
-                
-                const dayOfWeek = currentTime.toLocaleString('en-US', { weekday: 'long' });
-                const todaySchedule = schedule.find(s => s.day === dayOfWeek);
-
-                if (!todaySchedule) return "Нет расписания на сегодня";
-
-                const onShift = Object.entries(todaySchedule)
-                    .filter(([name, time]) => name !== 'day' && isCurrentlyOnShift(time))
-                    .map(([name]) => name);
-
-                return onShift.length > 0 ? onShift.join(', ') : "Никто не на смене";
-            }, [currentTime, dispatchSchedule, managementSchedule, role]);
-
-
-            return (
-                 <header className="bg-white p-4 rounded-t-lg shadow-md flex flex-wrap justify-between items-center border-b">
-                    <div className="flex items-center">
-                       <i className="fas fa-building text-blue-500 text-2xl mr-3"></i>
-                        <h1 className="text-xl font-bold text-gray-800">The Bay Services</h1>
-                    </div>
-                    <div className="text-sm text-gray-600 space-x-4 flex items-center mt-2 sm:mt-0">
-                         <div className="flex items-center">
-                            <i className="fas fa-clock mr-2 text-gray-400"></i>
-                            <span>{currentTime.toLocaleString('ru-RU', { dateStyle: 'full', timeStyle: 'medium' })}</span>
-                        </div>
-                        {weather && (
-                            <div className="flex items-center">
-                                <i className={`fas ${getWeatherIcon(weather.code)} mr-2 text-yellow-500`}></i>
-                                <span>{weather.temp}°F, Санта-Клара</span>
-                            </div>
-                        )}
-                        <div className="flex items-center">
-                            <i className="fas fa-user-clock mr-2 text-green-500"></i>
-                            <span className="font-semibold">{onDutyNow}</span>
-                        </div>
-                    </div>
-                    <button onClick={() => onSwitchRole(null)} className="text-sm text-gray-500 hover:text-blue-500 transition">
-                       Сменить роль ({role}) <i className="fas fa-right-from-bracket ml-1"></i>
-                    </button>
-                </header>
-            );
-        };
-        
-        const ScheduleEditorModal = ({ isOpen, onClose, schedule, setSchedule, db, collectionName }) => {
-            if (!isOpen) return null;
-            
-            const handleNameChange = (day, oldName, newName) => {
-                 const updatedSchedule = schedule.map(row => {
-                    if (row.day === day) {
-                        const newRow = { ...row };
-                        const time = newRow[oldName];
-                        delete newRow[oldName];
-                        newRow[newName] = time;
-                        return newRow;
-                    }
-                    return row;
                 });
-                setSchedule(updatedSchedule);
-            };
-
-            const handleSave = async () => {
-                const batch = window.firebase.writeBatch(db);
-                schedule.forEach((row, index) => {
-                    const docRef = window.firebase.doc(db, collectionName, `day_${index}`);
-                    batch.set(docRef, row);
-                });
-                await batch.commit();
-                onClose();
-            };
-
-            return (
-                <div className="modal-overlay">
-                    <div className="modal-content">
-                        <h2 className="text-xl font-bold mb-4">Редактировать имена</h2>
-                        <div className="space-y-4 max-h-96 overflow-y-auto">
-                            {schedule.map(row => (
-                                <div key={row.day}>
-                                    <h3 className="font-semibold">{row.day}</h3>
-                                    {Object.keys(row).filter(key => key !== 'day').map(name => (
-                                        <div key={name} className="flex items-center space-x-2 mt-1">
-                                            <span>{row[name]}:</span>
-                                            <input
-                                                type="text"
-                                                defaultValue={name}
-                                                onBlur={(e) => handleNameChange(row.day, name, e.target.value)}
-                                                className="border rounded px-2 py-1 w-full"
-                                            />
-                                        </div>
-                                    ))}
-                                </div>
-                            ))}
-                        </div>
-                        <div className="mt-6 flex justify-end space-x-3">
-                            <button onClick={onClose} className="px-4 py-2 bg-gray-200 rounded">Отмена</button>
-                            <button onClick={handleSave} className="px-4 py-2 bg-blue-500 text-white rounded">Сохранить</button>
-                        </div>
-                    </div>
-                </div>
-            );
-        };
-
-
-        const ScheduleTable = ({ schedule, setSchedule, db, collectionName, title }) => {
-             const [isModalOpen, setIsModalOpen] = useState(false);
-             const headers = schedule.length > 0 ? Object.keys(schedule[0]).filter(key => key !== 'day') : [];
-
-             return (
-                <div className="bg-white p-6 rounded-lg shadow">
-                    <div className="flex justify-between items-center mb-4">
-                        <h2 className="text-xl font-bold">{title}</h2>
-                        <button onClick={() => setIsModalOpen(true)} className="px-3 py-1 bg-blue-500 text-white rounded-md text-sm hover:bg-blue-600">
-                             <i className="fas fa-edit mr-1"></i> Изменить имена
-                        </button>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left text-gray-500">
-                            <thead className="text-xs text-gray-700 uppercase bg-gray-50">
-                                <tr>
-                                    <th scope="col" className="px-6 py-3">День</th>
-                                    {headers.map(name => <th key={name} scope="col" className="px-6 py-3">{name}</th>)}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {schedule.map((row) => (
-                                    <tr key={row.day} className="bg-white border-b">
-                                        <th scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{row.day}</th>
-                                        {headers.map(name => <td key={name} className="px-6 py-4">{row[name] || 'N/A'}</td>)}
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                     <ScheduleEditorModal 
-                        isOpen={isModalOpen} 
-                        onClose={() => setIsModalOpen(false)} 
-                        schedule={schedule}
-                        setSchedule={setSchedule}
-                        db={db}
-                        collectionName={collectionName}
-                    />
-                </div>
-            );
-        };
-        
-        const OutstandingPaymentsTable = ({ payments, db }) => {
-            const handleStatusChange = async (id, newStatus) => {
-                 const docRef = window.firebase.doc(db, "outstanding_payments", id);
-                 await window.firebase.updateDoc(docRef, { paymentStatus: newStatus });
-            };
-
-            return (
-                <div className="bg-white p-6 rounded-lg shadow">
-                    <h2 className="text-xl font-bold mb-4">Отслеживание неоплаченных счетов</h2>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left text-gray-500">
-                           <thead className="text-xs text-gray-700 uppercase bg-gray-50">
-                                <tr>
-                                    <th className="px-4 py-3">Клиент</th>
-                                    <th className="px-4 py-3">Сумма</th>
-                                    <th className="px-4 py-3">Дата счета</th>
-                                    <th className="px-4 py-3">Статус оплаты</th>
-                                    <th className="px-4 py-3">Дней просрочки</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {payments.map(payment => (
-                                    <tr key={payment.id} className="bg-white border-b hover:bg-gray-50">
-                                        <td className="px-4 py-3 font-medium text-gray-900">{payment.customerName}</td>
-                                        <td className="px-4 py-3">${payment.amountDue}</td>
-                                        <td className="px-4 py-3">{payment.invoiceDate}</td>
-                                        <td className="px-4 py-3">
-                                             <select 
-                                                value={payment.paymentStatus} 
-                                                onChange={(e) => handleStatusChange(payment.id, e.target.value)}
-                                                className={`p-1 rounded text-xs w-full ${payment.paymentStatus === 'PAID' ? 'bg-green-100 text-green-800 border-green-300' : 'bg-red-100 text-red-800 border-red-300'}`}
-                                             >
-                                                <option value="PAID">Оплачено</option>
-                                                <option value="OUTSTANDING">Неоплачено</option>
-                                            </select>
-                                        </td>
-                                        <td className="px-4 py-3">{payment.duePeriod}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            );
-        };
-        
-        const AutoAnswerModal = ({ answer, onClose, db }) => {
-            const [formData, setFormData] = useState(answer || { serviceType: '', message: '' });
-
-            const handleChange = (e) => {
-                const { name, value } = e.target;
-                setFormData(prev => ({ ...prev, [name]: value }));
-            };
-
-            const handleSave = async () => {
-                if (formData.id) { // Update existing
-                    const docRef = window.firebase.doc(db, 'automatic_answers', formData.id);
-                    await window.firebase.updateDoc(docRef, formData);
-                } else { // Add new
-                    await window.firebase.addDoc(window.firebase.collection(db, 'automatic_answers'), formData);
-                }
-                onClose();
-            };
-
-            return (
-                <div className="modal-overlay">
-                    <div className="modal-content">
-                        <h2 className="text-xl font-bold mb-4">{answer.id ? 'Редактировать ответ' : 'Добавить новый ответ'}</h2>
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Тип услуги</label>
-                                <input
-                                    type="text"
-                                    name="serviceType"
-                                    value={formData.serviceType}
-                                    onChange={handleChange}
-                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Сообщение</label>
-                                <textarea
-                                    name="message"
-                                    rows="10"
-                                    value={formData.message}
-                                    onChange={handleChange}
-                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                                ></textarea>
-                            </div>
-                        </div>
-                        <div className="mt-6 flex justify-end space-x-3">
-                            <button onClick={onClose} className="px-4 py-2 bg-gray-200 rounded">Отмена</button>
-                            <button onClick={handleSave} className="px-4 py-2 bg-blue-500 text-white rounded">Сохранить</button>
-                        </div>
-                    </div>
-                </div>
-            );
-        };
-
-
-        const AutomaticAnswers = ({ answers, db }) => {
-            const [selectedAnswer, setSelectedAnswer] = useState(null);
-            const [isAddingNew, setIsAddingNew] = useState(false);
-            const [copiedId, setCopiedId] = useState(null);
-
-            const handleCopy = (text, id) => {
-                const modifiedText = text.startsWith('Hi ,') ? 'Hi ' + text.substring(4) : text;
-                navigator.clipboard.writeText(modifiedText);
-                setCopiedId(id);
-                setTimeout(() => setCopiedId(null), 2000);
-            };
-            
-            const handleDelete = async (id) => {
-                if(confirm("Вы уверены, что хотите удалить этот ответ?")) {
-                    await window.firebase.deleteDoc(window.firebase.doc(db, 'automatic_answers', id));
-                }
             }
-            
-            const handleEdit = (answer) => {
-                setSelectedAnswer(answer);
-            };
-            
-            const handleCloseModal = () => {
-                setSelectedAnswer(null);
-                setIsAddingNew(false);
-            };
-
-            return (
-                <div className="bg-white p-6 rounded-lg shadow">
-                    <div className="flex justify-between items-center mb-4">
-                        <h2 className="text-xl font-bold">Автоматические ответы</h2>
-                        <button onClick={() => setIsAddingNew(true)} className="px-3 py-1 bg-green-500 text-white rounded-md text-sm hover:bg-green-600">
-                            <i className="fas fa-plus mr-1"></i> Добавить
-                        </button>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {answers.map(answer => (
-                            <div key={answer.id} className="border rounded-lg p-4 flex flex-col justify-between">
-                                <h3 className="font-semibold mb-2">{answer.serviceType}</h3>
-                                <p className="text-sm text-gray-600 whitespace-pre-wrap flex-grow">{answer.message.substring(0, 100)}...</p>
-                                <div className="mt-4 flex space-x-2">
-                                    <button onClick={() => handleCopy(answer.message, answer.id)} className="w-full text-sm px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
-                                        <i className={`fas ${copiedId === answer.id ? 'fa-check' : 'fa-copy'}`}></i> {copiedId === answer.id ? 'Скопировано!' : 'Копировать'}
-                                    </button>
-                                    <button onClick={() => handleEdit(answer)} className="text-sm px-3 py-2 bg-gray-200 rounded hover:bg-gray-300">
-                                        <i className="fas fa-pencil-alt"></i>
-                                    </button>
-                                     <button onClick={() => handleDelete(answer.id)} className="text-sm px-3 py-2 bg-red-100 text-red-600 rounded hover:bg-red-200">
-                                        <i className="fas fa-trash"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                     {(selectedAnswer || isAddingNew) && (
-                        <AutoAnswerModal 
-                            answer={selectedAnswer || {}} 
-                            onClose={handleCloseModal} 
-                            db={db}
-                        />
-                    )}
-                </div>
-            );
         };
-        
-        function OperatorPage({ onSwitchRole, db }) {
-            const [activeTab, setActiveTab] = useState('dispatchSchedule');
-            const [dispatchSchedule, setDispatchSchedule] = useState([]);
-            const [outstandingPayments, setOutstandingPayments] = useState([]);
-            const [autoAnswers, setAutoAnswers] = useState([]);
 
-            useEffect(() => {
-                if (!db) return;
-                
-                const unsubDispatch = window.firebase.onSnapshot(window.firebase.collection(db, "dispatch_schedule"), (snapshot) => {
-                    const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })).sort((a, b) => a.id.localeCompare(b.id));
-                    setDispatchSchedule(data);
-                });
+        checkSchedule(schedules.dispatching, 'operator');
+        checkSchedule(schedules.management, 'manager');
+        return working;
+    }, [currentDate, schedules]);
+    
+    const handleCellChange = (scheduleType, rowIndex, colName, value) => {
+      const newSchedules = { ...schedules };
+      newSchedules[scheduleType][rowIndex][colName] = value;
+      setSchedules(newSchedules);
+    };
 
-                const unsubPayments = window.firebase.onSnapshot(window.firebase.collection(db, "outstanding_payments"), (snapshot) => {
-                    const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-                    setOutstandingPayments(data);
-                });
-                
-                 const unsubAnswers = window.firebase.onSnapshot(window.firebase.collection(db, "automatic_answers"), (snapshot) => {
-                    const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-                    setAutoAnswers(data);
-                });
+    const ScheduleTable = ({ title, data, type }) => (
+      <div className="mt-8">
+        <h3 className="text-xl font-semibold text-gray-700 mb-3">{title}</h3>
+        <div className="overflow-x-auto rounded-lg border">
+          <table className="w-full table-auto text-sm">
+            <thead>
+              <tr className="bg-gray-200">
+                {Object.keys(data[0]).map(key => <th key={key} className="p-3 font-semibold tracking-wide text-left">{key}</th>)}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {data.map((row, rowIndex) => (
+                <tr key={rowIndex}>
+                  {Object.entries(row).map(([key, value]) => (
+                    <td key={key} className="p-3 text-gray-700" contentEditable={key !== 'Days'} 
+                        onBlur={(e) => handleCellChange(type, rowIndex, key, e.currentTarget.textContent)}
+                        suppressContentEditableWarning={true}>
+                      {value}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
 
-                return () => {
-                    unsubDispatch();
-                    unsubPayments();
-                    unsubAnswers();
-                };
-            }, [db]);
-            
-            const tabs = {
-                'dispatchSchedule': 'График диспетчеров',
-                'outstandingPayments': 'Долги',
-                'autoAnswers': 'Авто-ответы',
-            };
+    return (
+        <div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                <div className="text-center bg-gray-100 p-6 rounded-lg">
+                    <p className="text-3xl font-semibold text-gray-800">{timeString}</p>
+                    <p className="text-md text-gray-500">{dateString}</p>
+                </div>
+                <div className="bg-blue-50 p-6 rounded-lg">
+                    <h3 className="font-semibold text-blue-800 mb-2">Сейчас на смене:</h3>
+                    <p><strong>Операторы:</strong> {currentlyWorking.operators.join(', ') || 'Нет на смене'}</p>
+                    <p><strong>Менеджеры:</strong> {currentlyWorking.managers.join(', ') || 'Нет на смене'}</p>
+                </div>
+            </div>
+            <ScheduleTable title="График диспетчеров" data={schedules.dispatching} type="dispatching" />
+            <ScheduleTable title="График менеджеров" data={schedules.management} type="management" />
+        </div>
+    );
+};
 
-            return (
-                <div className="bg-white rounded-lg shadow-xl">
-                    <AppHeader role="operator" onSwitchRole={onSwitchRole} dispatchSchedule={dispatchSchedule} />
-                    <nav className="p-4 border-b border-gray-200">
-                        <div className="flex flex-wrap items-center gap-2">
-                             {Object.entries(tabs).map(([key, title]) => (
-                                <button key={key} onClick={() => setActiveTab(key)} 
-                                        className={`tab-button text-sm font-medium px-4 py-2 rounded-md ${activeTab === key ? 'active text-blue-600' : 'text-gray-600 hover:bg-gray-100'}`}>
-                                    {title}
-                                </button>
-                            ))}
+const AutoAnswers = () => {
+    const operators = ["Thomas", "David", "Emma", "Eric", "Nora", "Trinity", "Kenny"];
+    const [selectedOperator, setSelectedOperator] = useState("Thomas");
+    
+    const copyToClipboard = (text) => {
+        navigator.clipboard.writeText(text).then(() => alert('Текст скопирован!'));
+    };
+
+    return (
+        <div>
+            <div className="mb-6">
+                <label htmlFor="operator-select" className="block text-sm font-medium text-gray-700 mb-2">Выберите оператора для подстановки в шаблон:</label>
+                <select id="operator-select" value={selectedOperator} onChange={e => setSelectedOperator(e.target.value)}
+                    className="w-full max-w-xs p-2 border border-gray-300 rounded-md shadow-sm">
+                    {operators.map(op => <option key={op} value={op}>{op}</option>)}
+                </select>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {autoAnswersData.map((answer, index) => {
+                    const message = answer.Message.replace(/{operatorName}/g, selectedOperator);
+                    return (
+                        <div key={index} className="border rounded-lg p-4 bg-white shadow-sm flex flex-col">
+                            <h4 className="font-semibold text-gray-800 mb-2">{answer['Service type']}</h4>
+                            <textarea readOnly value={message} className="text-sm text-gray-600 bg-gray-50 p-3 rounded-md flex-grow resize-none h-64"></textarea>
+                            <button onClick={() => copyToClipboard(message)} className="flex items-center justify-center gap-2 copy-button mt-3 w-full bg-blue-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-blue-600">
+                                <ClipboardCopy size={16} /> Копировать
+                            </button>
                         </div>
-                    </nav>
-                     <main className="p-6 space-y-6">
-                        {activeTab === 'dispatchSchedule' && <ScheduleTable schedule={dispatchSchedule} setSchedule={setDispatchSchedule} db={db} collectionName="dispatch_schedule" title="График работы диспетчеров"/>}
-                        {activeTab === 'outstandingPayments' && <OutstandingPaymentsTable payments={outstandingPayments} db={db} />}
-                        {activeTab === 'autoAnswers' && <AutomaticAnswers answers={autoAnswers} db={db} />}
-                    </main>
-                </div>
-            );
-        }
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
 
-        function ManagementPage({ onSwitchRole, db }) {
-            const [managementSchedule, setManagementSchedule] = useState([]);
-            
-             useEffect(() => {
-                if (!db) return;
-                const unsubscribe = window.firebase.onSnapshot(window.firebase.collection(db, "management_schedule"), (snapshot) => {
-                     const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })).sort((a,b) => a.id.localeCompare(b.id));
-                    setManagementSchedule(data);
-                });
-                return () => unsubscribe();
-            }, [db]);
-            
-            return (
-                 <div className="bg-white rounded-lg shadow-xl">
-                    <AppHeader role="management" onSwitchRole={onSwitchRole} managementSchedule={managementSchedule} />
-                    <main className="p-6">
-                        <ScheduleTable schedule={managementSchedule} setSchedule={setManagementSchedule} db={db} collectionName="management_schedule" title="График работы менеджеров" />
-                    </main>
-                </div>
-            );
-        }
+const ServiceInfo = () => {
+    const [selectedService, setSelectedService] = useState(null);
 
-        ReactDOM.render(<App />, document.getElementById('root'));
-    </script>
-</body>
-</html>
+    const combinedServiceData = useMemo(() => {
+        return serviceInfoData.map(info => {
+            const priceInfo = servicesAndPricesData.find(p => p.Service.toLowerCase().includes(info.SERVICE.split(' ')[0].toLowerCase()));
+            const recommendation = serviceRecommendationsData.find(r => r.Service.toLowerCase().includes(info.SERVICE.split(' ')[0].toLowerCase()));
+            return {
+                ...info,
+                Price: priceInfo ? priceInfo.Price : 'N/A',
+                Note: priceInfo ? priceInfo.Note : '',
+                Recommendation: recommendation ? recommendation.Recommendation : 'Нет рекомендаций'
+            };
+        });
+    }, []);
+
+    const ServiceModal = ({ service, onClose }) => (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl max-h-full overflow-y-auto">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-2xl font-bold text-gray-800">{service.SERVICE}</h3>
+                    <button onClick={onClose} className="text-gray-500 hover:text-gray-800"><X size={24} /></button>
+                </div>
+                <div className="space-y-4 text-gray-700">
+                    <div className="p-3 bg-blue-50 rounded-md"><strong>Цена:</strong> {service.Price} {service.Note && `(${service.Note})`}</div>
+                    <div><strong>Когда необходимо:</strong><p className="whitespace-pre-wrap pl-2">{service["WHEN IT NEEDS"]}</p></div>
+                    <div><strong>Частота:</strong><p className="whitespace-pre-wrap pl-2">{service["SERVICE FREQUENCY"]}</p></div>
+                    <div><strong>Методы:</strong><p className="whitespace-pre-wrap pl-2">{service["SERVICE METHODS"]}</p></div>
+                    <div><strong>Этапы:</strong><p className="whitespace-pre-wrap pl-2">{service["SERVICE STAGES"]}</p></div>
+                    <div><strong>Продолжительность:</strong><p className="pl-2">{service["SERVICE DURATION"]}</p></div>
+                    <div className="pt-4 border-t"><strong>Рекомендации:</strong><p className="whitespace-pre-wrap pl-2">{service.Recommendation}</p></div>
+                </div>
+            </div>
+        </div>
+    );
+
+    return (
+        <div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {combinedServiceData.map((service, index) => (
+                    <button key={index} onClick={() => setSelectedService(service)} 
+                            className="text-center p-4 border rounded-lg bg-white shadow-sm hover:bg-blue-50 hover:shadow-md transition-all h-24 flex items-center justify-center">
+                        <h4 className="font-semibold text-gray-800">{service.SERVICE}</h4>
+                    </button>
+                ))}
+            </div>
+            {selectedService && <ServiceModal service={selectedService} onClose={() => setSelectedService(null)} />}
+        </div>
+    );
+};
+
+const PropertyManagement = () => {
+    const [list, setList] = useState(propertyManagementData);
+    const [showModal, setShowModal] = useState(false);
+    
+    const addCompany = (company) => {
+        setList([...list, company]);
+        setShowModal(false);
+    };
+    
+    // Simple modal for adding, can be expanded
+    const AddModal = () => (
+         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg w-full max-w-md">
+                <h3 className="text-xl font-bold mb-4">Добавить новую компанию</h3>
+                {/* Form fields would go here */}
+                <p>Форма для добавления новой компании.</p>
+                <button onClick={() => addCompany({Company: 'New Co', Phone: '123-456'})} className="bg-blue-500 text-white px-4 py-2 rounded-md mt-4">Добавить</button>
+                <button onClick={() => setShowModal(false)} className="ml-2 text-gray-600">Отмена</button>
+            </div>
+        </div>
+    );
+
+    return (
+        <div>
+            <button onClick={() => setShowModal(true)} className="bg-green-500 text-white px-4 py-2 rounded-md mb-4 flex items-center gap-2">
+                <PlusCircle size={18} /> Добавить
+            </button>
+            <div className="overflow-x-auto rounded-lg border">
+                <table className="w-full table-auto text-sm">
+                    <thead>
+                        <tr className="bg-gray-200">
+                           {Object.keys(list[0]).map(h => <th key={h} className="p-3 font-semibold text-left">{h}</th>)}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {list.map((item, i) => <tr key={i}>{Object.values(item).map((val, j) => <td key={j} className="p-3">{val}</td>)}</tr>)}
+                    </tbody>
+                </table>
+            </div>
+            {showModal && <AddModal />}
+        </div>
+    );
+};
+
+const OutstandingPayments = () => {
+    const [payments, setPayments] = useState(outstandingPaymentsData);
+    const [showArchived, setShowArchived] = useState(false);
+
+    const toggleStatus = (id) => {
+        setPayments(payments.map(p => p.id === id ? {...p, status: p.status === 'PAID' ? 'OUTSTANDING' : 'PAID'} : p));
+    };
+
+    const totalDue = useMemo(() => {
+        return payments
+            .filter(p => p.status === 'OUTSTANDING')
+            .reduce((sum, p) => sum + parseFloat(p['Amount due']), 0)
+            .toFixed(2);
+    }, [payments]);
+    
+    const filteredPayments = showArchived ? payments : payments.filter(p => p.status !== 'PAID');
+
+    return (
+        <div>
+            <div className="flex justify-between items-center mb-4">
+                 <button onClick={() => setShowArchived(!showArchived)} className="bg-gray-200 px-4 py-2 rounded-md">
+                    {showArchived ? 'Скрыть оплаченные' : 'Показать все (включая оплаченные)'}
+                </button>
+                <div className="text-xl font-bold text-red-600">К оплате: ${totalDue}</div>
+            </div>
+            <div className="overflow-x-auto rounded-lg border">
+                <table className="w-full table-auto text-sm">
+                    <thead><tr className="bg-gray-200">
+                        <th className="p-3">Customer</th><th className="p-3">Amount</th><th className="p-3">Date</th><th className="p-3">Status</th>
+                    </tr></thead>
+                    <tbody>
+                        {filteredPayments.map(p => (
+                            <tr key={p.id}>
+                                <td className="p-3">{p['Customer name']}</td>
+                                <td className="p-3">${p['Amount due']}</td>
+                                <td className="p-3">{p['Invoice date']}</td>
+                                <td className="p-3">
+                                    <button onClick={() => toggleStatus(p.id)} 
+                                        className={`px-3 py-1 text-xs font-semibold rounded-full ${p.status === 'PAID' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                        {p.status}
+                                    </button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+};
+
+const AdminFiles = () => {
+    const [files, setFiles] = useState([]);
+
+    const handleFileUpload = (event) => {
+        const uploadedFile = event.target.files[0];
+        if (uploadedFile) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const newFile = {
+                    name: uploadedFile.name,
+                    url: e.target.result,
+                    type: uploadedFile.type,
+                };
+                setFiles([...files, newFile]);
+            };
+            reader.readAsDataURL(uploadedFile);
+        }
+    };
+    
+    const removeFile = (fileName) => {
+        setFiles(files.filter(f => f.name !== fileName));
+    };
+
+    return (
+        <div>
+             <input type="file" onChange={handleFileUpload} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>
+             <div className="mt-6 space-y-3">
+                {files.length > 0 ? files.map((file, i) => (
+                    <div key={i} className="flex items-center justify-between p-3 bg-gray-100 rounded-lg">
+                        <span>{file.name}</span>
+                        <div>
+                            <a href={file.url} download={file.name} className="inline-flex items-center gap-2 text-blue-600 hover:underline mr-4"><Download size={16}/> Скачать</a>
+                            <button onClick={() => removeFile(file.name)} className="text-red-500 hover:text-red-700"><Trash2 size={16}/></button>
+                        </div>
+                    </div>
+                )) : <p className="text-gray-500">Файлы не загружены.</p>}
+             </div>
+        </div>
+    );
+};
+
+const Browser = () => (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-[70vh]">
+        <iframe src="https://www.google.com/search?igu=1" className="w-full h-full border rounded-lg"></iframe>
+        <iframe src="https://www.google.com/search?igu=1" className="w-full h-full border rounded-lg"></iframe>
+    </div>
+);
+
+// --- ОСНОВНЫЕ КОМПОНЕНТЫ СТРАНИЦ ---
+
+const OperatorPage = ({ onSwitchRole }) => {
+    const [activeTab, setActiveTab] = useState('dashboard');
+    const [schedules, setSchedules] = useState({ dispatching: dispatchingScheduleData, management: managementScheduleData });
+    const tabs = {
+        dashboard: <Dashboard schedules={schedules} setSchedules={setSchedules} />,
+        answers: <AutoAnswers />,
+        service_info: <ServiceInfo />,
+        pm_list: <PropertyManagement />,
+        browser: <Browser />
+    };
+    return (
+        <AppLayout role="Оператор" onSwitchRole={onSwitchRole} activeTab={activeTab} setActiveTab={setActiveTab} tabs={
+            {'dashboard': 'Dashboard', 'answers': 'Automatic Answers', 'service_info': 'Service Info & Prices', 'pm_list': 'Property Management', 'browser': 'Browser'}
+        }>
+            {tabs[activeTab]}
+        </AppLayout>
+    );
+};
+
+const ManagementPage = ({ onSwitchRole }) => {
+    const [activeTab, setActiveTab] = useState('dashboard');
+     const [schedules, setSchedules] = useState({ dispatching: dispatchingScheduleData, management: managementScheduleData });
+    const tabs = {
+        dashboard: <Dashboard schedules={schedules} setSchedules={setSchedules} />,
+        pm_list: <PropertyManagement />,
+        payments: <OutstandingPayments />,
+        files: <AdminFiles />,
+        browser: <Browser />
+    };
+    return (
+        <AppLayout role="Менеджер" onSwitchRole={onSwitchRole} activeTab={activeTab} setActiveTab={setActiveTab} tabs={
+             {'dashboard': 'Dashboard', 'pm_list': 'Property Management', 'payments': 'Outstanding Payments', 'files': 'Administrative Files', 'browser': 'Browser'}
+        }>
+            {tabs[activeTab]}
+        </AppLayout>
+    );
+};
+
+const AppLayout = ({ role, onSwitchRole, children, activeTab, setActiveTab, tabs }) => (
+    <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-lg">
+        <header className="p-4 border-b border-gray-200 bg-gray-50 rounded-t-xl flex items-center justify-between">
+            <div className="flex items-center gap-4">
+                 <img src="https://thebayservices.com/wp-content/uploads/2022/07/bay-services-logo-300x100.png" alt="Logo" className="h-12"/>
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-800">The Bay Services</h1>
+                    <p className="text-md text-gray-500">Dashboard</p>
+                </div>
+            </div>
+            <button onClick={() => onSwitchRole(null)} className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-100">
+                Сменить роль ({role})
+            </button>
+        </header>
+        <nav className="p-4 border-b border-gray-200">
+            <div className="flex flex-wrap items-center gap-2">
+                {Object.entries(tabs).map(([key, title]) => (
+                    <button key={key} onClick={() => setActiveTab(key)} 
+                            className={`tab-button text-sm font-medium border-b-2 px-4 py-2 rounded-md transition-all ${activeTab === key ? 'border-blue-500 text-blue-600 bg-blue-50' : 'border-transparent text-gray-600 hover:bg-gray-100'}`}>
+                        {title}
+                    </button>
+                ))}
+            </div>
+        </nav>
+        <main className="p-6">{children}</main>
+    </div>
+);
+
+
+export default function App() {
+    const [role, setRole] = useState(null);
+
+    if (!role) {
+        return <RoleSelectionScreen onSelectRole={setRole} />;
+    }
+
+    return (
+        <div className="p-4 md:p-8">
+            {role === 'operator' && <OperatorPage onSwitchRole={setRole} />}
+            {role === 'management' && <ManagementPage onSwitchRole={setRole} />}
+        </div>
+    );
+}
