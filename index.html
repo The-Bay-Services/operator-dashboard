@@ -3,9 +3,617 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https: http:; connect-src 'self' http: https: ws: file:;">
     <title>The Bay Services - Operator Dashboard</title>
     <link rel="icon" type="image/x-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏠</text></svg>">
+    
+    <style>
+        .schedule-cell {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .schedule-cell:hover {
+            background-color: rgba(59, 130, 246, 0.1);
+        }
+        .schedule-cell.updated {
+            animation: highlight 1s ease-in-out;
+        }
+        @keyframes highlight {
+            0% { background-color: #93C5FD; }
+            100% { background-color: transparent; }
+        }
+        #overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            z-index: 1000;
+        }
+        .edit-time-popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1001;
+            width: 90%;
+            max-width: 400px;
+        }
+    </style>
+    
+    <!-- External resources -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@tailwindcss/forms@0.5.3/dist/forms.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="js/schedule.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            ScheduleManager.init();
+        });
+    </script>
+    
+    <!-- Google Sign-In -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script>
+        window.onload = function() {
+            google.accounts.id.initialize({
+                client_id: '225236217856-1nmgupn5n82pjih9en2sl7np3di064s7.apps.googleusercontent.com',
+                auto_select: false,
+                callback: handleCredentialResponse,
+            });
+            
+            google.accounts.id.renderButton(
+                document.getElementById('googleSignInArea'),
+                { 
+                    theme: 'outline',
+                    size: 'large',
+                    type: 'standard',
+                    text: 'signin_with',
+                    shape: 'rectangular',
+                    logo_alignment: 'left'
+                }
+            );
+        }
+        
+        function handleCredentialResponse(response) {
+            if (!response.credential) {
+                showNotification('Ошибка входа: не получены данные авторизации', 'error');
+                return;
+            }
+
+            try {
+                // Decode the credential
+                const payload = decodeJwtResponse(response.credential);
+                
+                // Update UI with user info
+                document.getElementById('userPicture').src = payload.picture;
+                document.getElementById('userName').textContent = payload.name;
+                document.getElementById('userEmail').textContent = payload.email;
+                
+                // Show user info and hide sign in button
+                document.getElementById('userInfo').classList.remove('hidden');
+                document.getElementById('googleSignInArea').classList.add('hidden');
+                
+                // Store authentication state
+                localStorage.setItem('isAuthenticated', 'true');
+                localStorage.setItem('userEmail', payload.email);
+                
+                showNotification('Successfully signed in as ' + payload.email, 'success');
+            
+            // Show user info and hide sign in button
+            document.getElementById('userInfo').classList.remove('hidden');
+            document.querySelector('.g_id_signin').classList.add('hidden');
+            
+            // Store the credential for later use
+            localStorage.setItem('googleCredential', credential);
+        }
+        
+        function decodeJwtResponse(token) {
+            try {
+                const base64Url = token.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                }).join(''));
+                return JSON.parse(jsonPayload);
+            } catch (error) {
+                console.error('Error decoding token:', error);
+                throw new Error('Invalid token format');
+            }
+        }
+
+        // Initialize sign out button
+        document.addEventListener('DOMContentLoaded', () => {
+            // Check if user was previously authenticated
+            const isAuthenticated = localStorage.getItem('isAuthenticated');
+            const userEmail = localStorage.getItem('userEmail');
+            
+            if (isAuthenticated === 'true' && userEmail) {
+                // Re-render the sign-in button
+                google.accounts.id.renderButton(
+                    document.getElementById('googleSignInArea'),
+                    { theme: 'outline', size: 'large' }
+                );
+            }
+            
+            // Add sign out handler
+            const signOutButton = document.getElementById('signOut');
+            if (signOutButton) {
+                signOutButton.addEventListener('click', () => {
+                    // Clear stored auth data
+                    localStorage.removeItem('isAuthenticated');
+                    localStorage.removeItem('userEmail');
+                    
+                    // Hide user info and show sign in button
+                    document.getElementById('userInfo').classList.add('hidden');
+                    document.getElementById('googleSignInArea').classList.remove('hidden');
+                    
+                    // Sign out from Google
+                    google.accounts.id.disableAutoSelect();
+                    
+                    showNotification('Successfully signed out', 'success');
+                });
+            }
+            const signOutButton = document.getElementById('signOut');
+            if (signOutButton) {
+                signOutButton.addEventListener('click', () => {
+                    // Clear stored credential
+                    localStorage.removeItem('googleCredential');
+                    
+                    // Reset UI
+                    document.getElementById('userInfo').classList.add('hidden');
+                    document.querySelector('.g_id_signin').classList.remove('hidden');
+                    
+                    // Sign out from Google
+                    google.accounts.id.disableAutoSelect();
+                });
+            }
+            
+            // Check for stored credential on page load
+            const storedCredential = localStorage.getItem('googleCredential');
+            if (storedCredential) {
+                handleCredentialResponse({ credential: storedCredential });
+            }
+        });
+    </script>
+    
+    <!-- Error handling -->
+    <script>
+        // Handle all errors globally
+        window.addEventListener('error', function(e) {
+            if (e.message && (
+                e.message.includes('runtime.lastError') ||
+                e.message.includes('The message port closed')
+            )) {
+                e.stopPropagation();
+                return false;
+            }
+        }, true);
+    </script>
+    
+    <!-- Suppress development warnings -->
+    <script>
+        console._warn = console.warn;
+        console.warn = function(msg) {
+            if (msg.includes('cdn.tailwindcss.com') || 
+                msg.includes('sandbox attribute') || 
+                msg.includes('runtime.lastError')) {
+                return;
+            }
+            console._warn.apply(console, arguments);
+        };
+    </script>
+    <script>
+        // Suppress Tailwind CLI warning for development
+        const originalWarn = console.warn;
+        console.warn = function(message) {
+            if (typeof message === 'string' && message.includes('cdn.tailwindcss.com should not be used in production')) {
+                return;
+            }
+            originalWarn.apply(console, arguments);
+        };
+
+        // Utility function to get current time in California
+        function getCaliforniaTime() {
+            // Create date in local time
+            const now = new Date();
+            
+            // Convert to California time
+            const californiaNow = new Date(now.toLocaleString('en-US', {
+                timeZone: 'America/Los_Angeles'
+            }));
+            
+            console.log('California current time:', californiaNow.toLocaleString());
+            return californiaNow;
+        }
+
+        // Utility function to parse time strings
+        function normalizeTimeString(timeStr) {
+            // Remove any spaces around AM/PM
+            return timeStr.replace(/\s*(AM|PM)/i, '$1');
+        }
+
+        // Convert 12-hour format to 24-hour
+        function convertTo24Hour(timeStr) {
+            // Remove spaces around AM/PM and standardize format
+            const normalized = timeStr.replace(/\s*(AM|PM)/i, ' $1').toUpperCase();
+            
+            // Match time components
+            const match = normalized.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)$/);
+            if (!match) {
+                console.error('Invalid time format:', timeStr);
+                return null;
+            }
+            
+            let hours = parseInt(match[1]);
+            let minutes = match[2] ? parseInt(match[2]) : 0;
+            const meridian = match[3];
+
+            // Convert to 24-hour format
+            if (meridian === 'PM' && hours !== 12) {
+                hours += 12;
+            } else if (meridian === 'AM' && hours === 12) {
+                hours = 0;
+            }
+
+            console.log(`Debug: Converting ${timeStr} to ${hours}:${minutes}`);
+            return [hours, minutes];
+        }
+
+        // Parse time string to Date object (in California timezone)
+        function parseTime(timeStr) {
+            const now = getCaliforniaTime();
+            
+            // Skip invalid time strings
+            if (timeStr === 'OFF') return null;
+
+            const result = convertTo24Hour(timeStr);
+            if (!result) return null;
+            
+            const [hours, minutes] = result;
+
+            try {
+                [hours, minutes] = convertTo24Hour(timeStr);
+            } catch (e) {
+                console.error('Invalid time format:', timeStr);
+                return null;
+            }
+
+            return new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
+        }
+
+        // Schedule data
+        const schedule = {
+            Monday: [
+                { time: "8:00 AM-11:00 AM", operator: "Vuqar/David" },
+                { time: "11:00 AM-1:00 PM", operator: "Kanan/Kenny" },
+                { time: "1:00 PM-3:00 PM", operator: "Nahida/Emma" },
+                { time: "3:00 PM-8:00 PM", operator: "Narmina/Nora" },
+                { time: "8:00 PM-10:00 PM", operator: "Orxan/Eric" }
+            ],
+            Tuesday: [
+                { time: "8:00 AM-11:00 AM", operator: "Vuqar/David" },
+                { time: "11:00 AM-1:00 PM", operator: "Kanan/Kenny" },
+                { time: "1:00 PM-3:00 PM", operator: "Nahida/Emma" },
+                { time: "3:00 PM-8:00 PM", operator: "Narmina/Nora" },
+                { time: "8:00 PM-10:00 PM", operator: "Orxan/Eric" }
+            ],
+            Wednesday: [
+                { time: "8:00 AM-11:00 AM", operator: "Vuqar/David" },
+                { time: "11:00 AM-1:00 PM", operator: "Kanan/Kenny" },
+                { time: "1:00 PM-3:00 PM", operator: "Nahida/Emma" },
+                { time: "3:00 PM-8:00 PM", operator: "Narmina/Nora" },
+                { time: "8:00 PM-10:00 PM", operator: "Orxan/Eric" }
+            ],
+            Thursday: [
+                { time: "8:00 AM-11:00 AM", operator: "Vuqar/David" },
+                { time: "11:00 AM-1:00 PM", operator: "Kanan/Kenny" },
+                { time: "1:00 PM-3:00 PM", operator: "Nahida/Emma" },
+                { time: "3:00 PM-8:00 PM", operator: "Narmina/Nora" },
+                { time: "8:00 PM-10:00 PM", operator: "Orxan/Eric" }
+            ],
+            Friday: [
+                { time: "8:00 AM-11:00 AM", operator: "Vuqar/David" },
+                { time: "11:00 AM-1:00 PM", operator: "Kanan/Kenny" },
+                { time: "1:00 PM-3:00 PM", operator: "Nahida/Emma" },
+                { time: "3:00 PM-8:00 PM", operator: "Narmina/Nora" },
+                { time: "8:00 PM-10:00 PM", operator: "Orxan/Eric" }
+            ],
+            Saturday: [
+                { time: "08:00AM-07:00PM", operator: "Kanan/Kenny" }
+            ],
+            Sunday: [
+                { time: "3:00 PM-8:00 PM", operator: "Narmina/Nora" },
+                { time: "9:00 PM-2:00 AM", operator: "Orxan/Eric" }
+            ]
+        };
+
+        // Convert time string to Date object
+        function parseTime(timeStr) {
+            const now = new Date();
+            const [time, meridian] = timeStr.match(/(\d+:\d+)(?:\s*)([AaPp][Mm])?/).slice(1);
+            const [hours, minutes] = time.split(':').map(Number);
+            
+            let adjustedHours = hours;
+            if (meridian) {
+                if (meridian.toUpperCase() === 'PM' && hours !== 12) adjustedHours += 12;
+                if (meridian.toUpperCase() === 'AM' && hours === 12) adjustedHours = 0;
+            }
+            
+            return new Date(now.getFullYear(), now.getMonth(), now.getDate(), adjustedHours, minutes);
+        }
+
+        // Get current operator based on time
+        function getCurrentOperator() {
+            const now = getCaliforniaTime();
+            const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            const currentDay = days[now.getDay()];
+            const currentSchedule = schedule[currentDay];
+
+            console.log('Debug: Full schedule:', schedule);
+            console.log('Debug: Current day:', currentDay);
+            console.log('Debug: Current time:', now.toLocaleString());
+            console.log('Debug: Current schedule for today:', currentSchedule);
+
+            if (!currentSchedule) {
+                console.log('No schedule found for', currentDay);
+                return 'No operator scheduled';
+            }
+
+            for (const shift of currentSchedule) {
+                const [startStr, endStr] = shift.time.split('-');
+                const startTime = parseTime(startStr);
+                const endTime = parseTime(endStr);
+
+                console.log('Debug: Checking shift:', shift.time);
+                console.log('Debug: Start time raw:', startStr);
+                console.log('Debug: End time raw:', endStr);
+                console.log('Debug: Start time parsed:', startTime?.toLocaleString());
+                console.log('Debug: End time parsed:', endTime?.toLocaleString());
+                console.log('Debug: Current time:', now.toLocaleString());
+
+                // Convert times to minutes since midnight for easier comparison
+                const nowMinutes = now.getHours() * 60 + now.getMinutes();
+                const startMinutes = startTime ? startTime.getHours() * 60 + startTime.getMinutes() : -1;
+                const endMinutes = endTime ? endTime.getHours() * 60 + endTime.getMinutes() : -1;
+
+                console.log('Debug: Times in minutes - Now:', nowMinutes, 'Start:', startMinutes, 'End:', endMinutes);
+
+                if (startTime && endTime) {
+                    // Special handling for shifts that cross midnight
+                    if (endMinutes < startMinutes) {
+                        // Shift crosses midnight
+                        if (nowMinutes >= startMinutes || nowMinutes <= endMinutes) {
+                            console.log('Debug: Found current operator (crossing midnight):', shift.operator);
+                            return shift.operator;
+                        }
+                    } else {
+                        // Normal shift within same day
+                        if (nowMinutes >= startMinutes && nowMinutes <= endMinutes) {
+                            console.log('Debug: Found current operator:', shift.operator);
+                            return shift.operator;
+                        }
+                    }
+                }
+            }
+
+            console.log('No operator found for current time');
+            return 'No operator currently working';
+        }
+
+        // Update operator display
+        function updateOperatorDisplay() {
+            console.log('Updating operator display...');
+            const currentOperator = getCurrentOperator();
+            const elements = document.querySelectorAll('.current-operator');
+            console.log('Found elements:', elements.length);
+            elements.forEach(el => {
+                el.textContent = currentOperator;
+            });
+        }
+
+        // Update operator display every minute
+        setInterval(updateOperatorDisplay, 60000);
+        
+        // Initial update when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                updateOperatorDisplay();
+                makeScheduleEditable();
+            });
+        } else {
+            updateOperatorDisplay();
+            makeScheduleEditable();
+        }
+
+        // Variables for edit popup
+        let currentEditCell = null;
+        let currentOperator = null;
+        let currentDay = null;
+
+        // Function to show edit popup
+        function showEditPopup(cell, day, operator) {
+            currentEditCell = cell;
+            currentOperator = operator;
+            currentDay = day;
+            
+            const time = schedule[day].find(s => s.operator === operator)?.time || '';
+            const [start, end] = time.split('-').map(t => t.trim());
+            
+            document.getElementById('editTimeStart').value = start;
+            document.getElementById('editTimeEnd').value = end;
+            document.getElementById('overlay').style.display = 'block';
+            document.getElementById('editTimePopup').style.display = 'block';
+        }
+
+        // Function to close edit popup
+        function closeEditPopup() {
+            document.getElementById('overlay').style.display = 'none';
+            document.getElementById('editTimePopup').style.display = 'none';
+            currentEditCell = null;
+            currentOperator = null;
+            currentDay = null;
+        }
+
+        // Function to save time changes
+        function saveTimeChanges() {
+            if (!currentEditCell || !currentDay || !currentOperator) return;
+            
+            const startTime = document.getElementById('editTimeStart').value.trim();
+            const endTime = document.getElementById('editTimeEnd').value.trim();
+            
+            if (!startTime || !endTime) {
+                alert('Please enter both start and end times');
+                return;
+            }
+
+            // Update the schedule
+            const scheduleItem = schedule[currentDay].find(s => s.operator === currentOperator);
+            if (scheduleItem) {
+                scheduleItem.time = `${startTime}-${endTime}`;
+                currentEditCell.textContent = `${startTime}-${endTime}`;
+                updateOperatorDisplay(); // Update the current operator display
+            }
+
+            closeEditPopup();
+        }
+
+        // Function to make cells editable
+        function makePaymentStatusEditable() {
+            const paymentTable = document.getElementById('payment-table-body');
+            if (!paymentTable) return;
+
+            paymentTable.querySelectorAll('.status-cell').forEach(cell => {
+                cell.addEventListener('click', function() {
+                    if (!this.classList.contains('editing')) {
+                        const currentStatus = this.textContent;
+                        this.classList.add('editing');
+                        this.innerHTML = `
+                            <select class="w-full p-1 border rounded">
+                                <option value="Pending" ${currentStatus === 'Pending' ? 'selected' : ''}>Pending</option>
+                                <option value="Paid" ${currentStatus === 'Paid' ? 'selected' : ''}>Paid</option>
+                                <option value="Overdue" ${currentStatus === 'Overdue' ? 'selected' : ''}>Overdue</option>
+                            </select>
+                        `;
+                        const select = this.querySelector('select');
+                        select.focus();
+                        select.addEventListener('change', function() {
+                            const newStatus = this.value;
+                            cell.classList.remove('editing');
+                            cell.textContent = newStatus;
+                            // Here you can add code to update the status in your data store
+                        });
+                        select.addEventListener('blur', function() {
+                            if (cell.classList.contains('editing')) {
+                                const newStatus = this.value;
+                                cell.classList.remove('editing');
+                                cell.textContent = newStatus;
+                            }
+                        });
+                    }
+                });
+            });
+        }
+
+        function makeScheduleEditable() {
+            const tables = document.querySelectorAll('table');
+            tables.forEach(table => {
+                const rows = table.querySelectorAll('tbody tr');
+                rows.forEach(row => {
+                    const day = row.querySelector('td:first-child')?.textContent;
+                    if (!day) return;
+
+                    const cells = row.querySelectorAll('td:not(:first-child)');
+                    cells.forEach((cell, index) => {
+                        if (cell.textContent !== 'OFF') {
+                            cell.classList.add('editable-cell');
+                            cell.onclick = () => {
+                                const operatorHeader = table.querySelector(`thead th:nth-child(${index + 2})`).textContent;
+                                showEditPopup(cell, day, operatorHeader);
+                            };
+                        }
+                    });
+                });
+            });
+        }
+
+        // Integrated Browser Functions
+        function loadBrowserUrl() {
+            const url = document.getElementById('browserUrl').value.trim();
+            if (!url) return;
+
+            const fullUrl = url.startsWith('http://') || url.startsWith('https://') ? url : 'https://' + url;
+            const frame = document.getElementById('browserFrame');
+            const error = document.getElementById('browserError');
+            const container = document.getElementById('browser-container');
+
+            error.style.display = 'none';
+            
+            // Special handling for Gmail and other secure services
+            if (url.includes('gmail.com')) {
+                window.open('https://gmail.com', '_blank');
+                return;
+            }
+
+            try {
+                // Create a new iframe for each load to prevent caching issues
+                const newFrame = document.createElement('iframe');
+                newFrame.id = 'browserFrame';
+                newFrame.className = frame.className;
+                newFrame.sandbox = frame.sandbox;
+                newFrame.style.cssText = frame.style.cssText;
+                
+                // Replace old frame with new one
+                frame.parentNode.replaceChild(newFrame, frame);
+                
+                // Set up error handling before setting src
+                newFrame.onerror = () => {
+                    error.style.display = 'block';
+                    error.innerHTML = `
+                        Unable to display the requested website due to security restrictions.<br>
+                        <a href="${fullUrl}" target="_blank" class="text-blue-500 hover:underline">
+                            Open in new tab
+                        </a>
+                    `;
+                };
+
+                // Attempt to load the URL
+                newFrame.src = fullUrl;
+                
+            } catch (e) {
+                console.error('Browser loading error:', e);
+                error.style.display = 'block';
+            }
+        }
+
+        // Handle browser navigation errors
+        window.addEventListener('error', function(e) {
+            if (e.target.tagName === 'IFRAME') {
+                const error = document.getElementById('browserError');
+                if (error) {
+                    error.style.display = 'block';
+                }
+            }
+        }, true);
+
+        // Add event listener for the browser URL input
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlInput = document.getElementById('browserUrl');
+            if (urlInput) {
+                urlInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        loadBrowserUrl();
+                    }
+                });
+            }
+        });
+    </script>
     <!-- Note: For production, install Tailwind CSS locally -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
@@ -14,6 +622,34 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
+
+        .current-operator-banner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(135deg, #424874 0%, #7EB2DD 100%);
+            color: white;
+            text-align: center;
+            padding: 1rem;
+            z-index: 9999;
+            font-weight: 600;
+            font-size: 1.1rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .current-operator {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            margin-left: 0.5rem;
+        }
+
+        /* Adjust body padding to account for banner */
+        body {
+            padding-top: 3.5rem !important;
+        }
         
         :root {
             --primary-color: #424874;
@@ -28,6 +664,83 @@
             --danger-gradient: linear-gradient(135deg, #424874 0%, #7EB2DD 100%);
             --glass-bg: rgba(255, 255, 255, 0.95);
             --glass-border: rgba(126, 178, 221, 0.2);
+        }
+        
+        .editable-cell {
+            cursor: pointer;
+            transition: background-color 0.2s;
+            position: relative;
+        }
+        
+        .editable-cell:hover {
+            background-color: rgba(126, 178, 221, 0.1);
+        }
+        
+        .editable-cell:hover::after {
+            content: '✎';
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--secondary-color);
+            font-size: 14px;
+            opacity: 0.6;
+        }
+        
+        .edit-time-popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            min-width: 300px;
+        }
+        
+        .edit-time-popup input {
+            width: 100%;
+            padding: 8px;
+            margin: 8px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .edit-time-popup .buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 16px;
+        }
+        
+        .edit-time-popup button {
+            padding: 6px 12px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .edit-time-popup .save {
+            background: var(--secondary-color);
+            color: white;
+        }
+        
+        .edit-time-popup .cancel {
+            background: #ddd;
+            color: #333;
+        }
+        
+        #overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            display: none;
         }
         
         * { box-sizing: border-box; }
@@ -75,6 +788,25 @@
             width: auto;
             filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
             object-fit: contain;
+        }
+
+        /* Role Switcher Styles */
+        .role-button {
+            transition: all 0.2s ease;
+        }
+        
+        .role-button.active {
+            background-color: rgba(255, 255, 255, 0.3);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .role-button:not(.active) {
+            opacity: 0.7;
+        }
+        
+        .role-button:not(.active):hover {
+            opacity: 1;
+            background-color: rgba(255, 255, 255, 0.1);
         }
         
         .nav-section {
@@ -353,50 +1085,616 @@
     </style>
 </head>
 <body class="p-4 md:p-8">
+    <div id="operator-banner" class="current-operator-banner">
+        Currently Working: <span class="current-operator">Loading...</span>
+        <div style="font-size: 0.8rem; margin-top: 0.25rem; opacity: 0.8;">
+            <span id="current-time"></span>
+        </div>
+    </div>
 
-    <div class="max-w-7xl mx-auto main-container rounded-xl">
+    <script>
+        // Update current time
+        function updateCurrentTime() {
+            const timeElement = document.getElementById('current-time');
+            if (timeElement) {
+                const now = new Date();
+                timeElement.textContent = now.toLocaleString('en-US', {
+                    timeZone: 'America/Los_Angeles',
+                    weekday: 'long',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true,
+                    timeZoneName: 'short'
+                });
+            }
+        }
+        setInterval(updateCurrentTime, 1000);
+        updateCurrentTime();
+    </script>
+
+    <!-- Role Selection Screen -->
+    <div id="role-selection" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div class="max-w-md w-full mx-4">
+            <div class="bg-white rounded-2xl shadow-2xl p-8 text-center">
+                <img src="bay-services-logo.png" alt="Bay Services Logo" class="h-20 mx-auto mb-6">
+                <h1 class="text-3xl font-bold mb-2" style="font-family: 'Poppins', sans-serif; color: var(--primary-color);">The Bay Services</h1>
+                <p class="text-gray-600 mb-8">Select your role to continue</p>
+                
+                <div class="space-y-4">
+                    <button onclick="selectRole('operator')" class="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg">
+                        <div class="flex items-center justify-center">
+                            <span class="text-2xl mr-3">👨‍💼</span>
+                            <div class="text-left">
+                                <div class="text-lg font-bold">Operator</div>
+                                <div class="text-sm opacity-90">Service management & customer support</div>
+                            </div>
+                        </div>
+                    </button>
+                    
+                    <button onclick="selectRole('manager')" class="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg">
+                        <div class="flex items-center justify-center">
+                            <span class="text-2xl mr-3">👩‍💼</span>
+                            <div class="text-left">
+                                <div class="text-lg font-bold">Manager</div>
+                                <div class="text-sm opacity-90">Administrative & financial oversight</div>
+                            </div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard (Hidden Initially) -->
+    <div id="main-dashboard" class="max-w-7xl mx-auto main-container rounded-xl" style="display: none;">
         <header class="p-6 header-section rounded-t-xl">
+            <div class="flex justify-between items-center">
+                <!-- Logo and Title -->
             <div class="logo-container">
                 <img src="bay-services-logo.png" alt="Bay Services Logo" class="logo-img">
             <div>
                     <h1 class="text-4xl font-bold text-white" style="font-family: 'Poppins', sans-serif;">The Bay Services</h1>
-                    <p class="text-lg text-white opacity-90 mt-1">Operator Dashboard</p>
+                        <p id="role-title" class="text-lg text-white opacity-90 mt-1">Dashboard</p>
+                </div>
+            </div>
+                
+                <!-- Role Switcher and Time -->
+                <div class="flex items-center gap-6">
+                    <!-- California Time -->
+                    <div class="text-white text-right">
+                        <div class="text-sm opacity-90">California Time</div>
+                        <div id="header-california-time" class="text-lg font-semibold">Loading...</div>
+                    </div>
+                    
+                    <!-- Role Switcher -->
+                    <div class="flex items-center gap-3">
+                        <span class="text-white text-sm opacity-90">Role:</span>
+                        <div class="bg-white bg-opacity-20 rounded-lg p-1">
+                            <button id="role-operator" onclick="switchRole('operator')" class="role-button px-4 py-2 rounded-md text-sm font-medium text-white">
+                                👨‍💼 Operator
+                            </button>
+                            <button id="role-manager" onclick="switchRole('manager')" class="role-button px-4 py-2 rounded-md text-sm font-medium text-white">
+                                👩‍💼 Manager
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </header>
 
-        <!-- NEW TAB ORDER -->
-        <nav class="p-6 nav-section">
-            <div class="flex flex-wrap items-center gap-3">
-                <button onclick="showTab('dashboard')" class="tab-button active text-sm font-medium px-6 py-3 text-gray-600 rounded-xl transition-all">Dashboard</button>
-                <button onclick="showTab('schedules')" class="tab-button text-sm font-medium px-6 py-3 text-gray-600 rounded-xl transition-all">Schedules</button>
-                <button onclick="showTab('property-management')" class="tab-button text-sm font-medium px-6 py-3 text-gray-600 rounded-xl transition-all">Property Management</button>
-                <button onclick="showTab('payments')" class="tab-button text-sm font-medium px-6 py-3 text-gray-600 rounded-xl transition-all">Payments</button>
-                <button onclick="showTab('templates')" class="tab-button text-sm font-medium px-6 py-3 text-gray-600 rounded-xl transition-all">Automatic Answers</button>
-                <button onclick="showTab('info')" class="tab-button text-sm font-medium px-6 py-3 text-gray-600 rounded-xl transition-all">Service Info</button>
-                <button onclick="showTab('services')" class="tab-button text-sm font-medium px-6 py-3 text-gray-600 rounded-xl transition-all">Services & Prices</button>
-                <button onclick="showTab('map')" class="tab-button text-sm font-medium px-6 py-3 text-gray-600 rounded-xl transition-all">Map</button>
-                <button onclick="showTab('browsers')" class="tab-button text-sm font-medium px-6 py-3 text-gray-600 rounded-xl transition-all">Browser</button>
-            </div>
+        <!-- Dynamic Tab Navigation -->
+        <nav id="tab-navigation" class="p-6 nav-section">
+            <!-- Tabs will be dynamically generated based on role -->
         </nav>
 
         <main class="p-6">
+            <!-- DASHBOARD: Main Schedule View -->
             <div id="dashboard" class="content-section active fade-in">
-                <h2 class="text-3xl font-bold mb-6" style="font-family: 'Poppins', sans-serif; color: var(--primary-color);">Welcome!</h2>
-                <div id="california-time" class="time-display mb-8"></div>
+                <h2 class="text-3xl font-bold mb-6" style="font-family: 'Poppins', sans-serif; color: var(--primary-color);">Dashboard</h2>
                 
-                <!-- Compact Schedule Section -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                    <!-- Dispatching Schedule -->
-                    <div class="card p-4">
-                        <h3 class="text-lg font-semibold mb-3" style="color: var(--secondary-color);">Dispatching Schedule</h3>
-                        <div id="dashboard-dispatching-schedule" class="text-sm"></div>
+                <!-- Schedule Controls -->
+                <div class="card p-4 mb-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold" style="color: var(--secondary-color);">Schedule View</h3>
+                        <div class="flex gap-2">
+                            <button id="schedule-compact" onclick="toggleScheduleView('compact')" class="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 transition-colors">
+                                Compact View
+                            </button>
+                            <button id="schedule-detailed" onclick="toggleScheduleView('detailed')" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-400 transition-colors">
+                                Detailed View
+                            </button>
+                    </div>
                     </div>
                     
-                    <!-- Management Schedule -->
-                    <div class="card p-4">
-                        <h3 class="text-lg font-semibold mb-3" style="color: var(--secondary-color);">Management Schedule</h3>
-                        <div id="dashboard-management-schedule" class="text-sm"></div>
+                    <!-- Schedule Tables -->
+                    <div id="schedule-tables" class="space-y-6">
+                        <!-- Operators Schedule -->
+                        <div class="card p-0 overflow-hidden">
+                            <div class="bg-gradient-to-r from-green-600 to-green-700 text-white p-4">
+                                <h4 class="text-lg font-bold">OPERATORS SCHEDULE</h4>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm">
+                                    <thead class="bg-green-600 text-white">
+                                        <tr>
+                                            <th class="p-3 font-semibold text-left">Days</th>
+                                            <th class="p-3 font-semibold text-left">Vuqar/David</th>
+                                            <th class="p-3 font-semibold text-left">Kanan/Kenny</th>
+                                            <th class="p-3 font-semibold text-left">Nahida/Emma</th>
+                                            <th class="p-3 font-semibold text-left">Narmina/Nora</th>
+                                            <th class="p-3 font-semibold text-left">Orxan/Eric</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="operators-schedule-body" class="divide-y divide-gray-200">
+                                        <!-- Will be populated by JavaScript -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <!-- Management Schedule -->
+                        <div class="card p-0 overflow-hidden">
+                            <div class="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4">
+                                <h4 class="text-lg font-bold">MANAGEMENT SCHEDULE</h4>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm">
+                                    <thead class="bg-blue-600 text-white">
+                                        <tr>
+                                            <th class="p-3 font-semibold text-left">Days</th>
+                                            <th class="p-3 font-semibold text-left">Vuqar/David</th>
+                                            <th class="p-3 font-semibold text-left">Nahida/Emma</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="management-schedule-body" class="divide-y divide-gray-200">
+                                        <!-- Will be populated by JavaScript -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">End Time</label>
+                                <input type="time" id="editTimeEnd" 
+                                       class="w-full p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                                <select id="editTimeStatus" 
+                                        class="w-full p-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                                    <option value="active">Active</option>
+                                    <option value="off">OFF</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mt-6 flex justify-end gap-2">
+                            <button onclick="closeEditPopup()" class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">
+                                Cancel
+                            </button>
+                            <button onclick="saveTimeChanges()" class="px-4 py-2 text-white bg-blue-500 rounded-lg hover:bg-blue-600">
+                                Save Changes
+                            </button>
+                        </div>
+                    </div>
+
+                    <script>
+                    const scheduleHandler = {
+                        // Schedule data storage
+                        data: {
+                            operators: {
+                                Monday: [
+                                    { operator: "Vuqar/David", time: "8:00-11:00" },
+                                    { operator: "Kanan/Kenny", time: "11:00-13:00" },
+                                    { operator: "Nahida/Emma", time: "13:00-15:00" },
+                                    { operator: "Narmina/Nora", time: "15:00-20:00" },
+                                    { operator: "Orxan/Eric", time: "20:00-22:00" }
+                                ],
+                                // Other days will be initialized empty
+                            },
+                        management: {
+                            Monday: [
+                                { operator: "Vuqar/David", time: "9:00-17:00" },
+                                { operator: "Nahida/Emma", time: "10:00-18:00" }
+                            ],
+                            // Add other days...
+                        }
+                    };
+
+                    // Initialize schedules
+                    function initializeSchedules() {
+                        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                        
+                        // Populate operators schedule
+                        const operatorsBody = document.getElementById('operators-schedule-body');
+                        days.forEach(day => {
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td class="p-3 font-medium">${day}</td>
+                                ${['Vuqar/David', 'Kanan/Kenny', 'Nahida/Emma', 'Narmina/Nora', 'Orxan/Eric']
+                                    .map(operator => `
+                                        <td class="p-3 schedule-cell" 
+                                            data-day="${day}" 
+                                            data-operator="${operator}" 
+                                            data-schedule-type="operators">OFF</td>
+                                    `).join('')}
+                            `;
+                            operatorsBody.appendChild(row);
+                        });
+
+                        // Populate management schedule
+                        const managementBody = document.getElementById('management-schedule-body');
+                        days.forEach(day => {
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td class="p-3 font-medium">${day}</td>
+                                ${['Vuqar/David', 'Nahida/Emma']
+                                    .map(operator => `
+                                        <td class="p-3 schedule-cell" 
+                                            data-day="${day}" 
+                                            data-operator="${operator}"
+                                            data-schedule-type="management">OFF</td>
+                                    `).join('')}
+                            `;
+                            managementBody.appendChild(row);
+                        });
+
+                        // Apply saved schedule data
+                        applyScheduleData();
+                        makeScheduleEditable();
+                    }
+
+                    // Apply schedule data to cells
+                    function applyScheduleData() {
+                        document.querySelectorAll('.schedule-cell').forEach(cell => {
+                            const { day, operator, scheduleType } = cell.dataset;
+                            const schedule = scheduleData[scheduleType]?.[day];
+                            if (schedule) {
+                                const shift = schedule.find(s => s.operator === operator);
+                                if (shift) {
+                                    cell.textContent = shift.time;
+                                }
+                            }
+                        });
+                    }
+
+                    // Make schedule cells editable
+                    function makeScheduleEditable() {
+                        document.querySelectorAll('.schedule-cell').forEach(cell => {
+                            cell.addEventListener('click', () => {
+                                const { day, operator, scheduleType } = cell.dataset;
+                                showEditPopup(cell, day, operator, scheduleType);
+                            });
+                        });
+                    }
+
+                    // Show edit popup
+                    function showEditPopup(cell, day, operator, scheduleType) {
+                        const currentTime = cell.textContent;
+                        const timeInputs = {
+                            start: document.getElementById('editTimeStart'),
+                            end: document.getElementById('editTimeEnd'),
+                            status: document.getElementById('editTimeStatus')
+                        };
+
+                        if (currentTime !== 'OFF') {
+                            const [start, end] = currentTime.split('-');
+                            timeInputs.start.value = start;
+                            timeInputs.end.value = end;
+                            timeInputs.status.value = 'active';
+                        } else {
+                            timeInputs.start.value = '09:00';
+                            timeInputs.end.value = '17:00';
+                            timeInputs.status.value = 'off';
+                        }
+
+                        // Store current edit context
+                        window.currentEdit = { cell, day, operator, scheduleType };
+                        
+                        document.getElementById('overlay').style.display = 'block';
+                        document.getElementById('editTimePopup').style.display = 'block';
+                    }
+
+                    // Save time changes
+                    function saveTimeChanges() {
+                        if (!window.currentEdit) return;
+                        
+                        const { cell, day, operator, scheduleType } = window.currentEdit;
+                        const status = document.getElementById('editTimeStatus').value;
+                        
+                        if (status === 'off') {
+                            cell.textContent = 'OFF';
+                            // Remove from schedule data
+                            if (scheduleData[scheduleType]?.[day]) {
+                                scheduleData[scheduleType][day] = scheduleData[scheduleType][day]
+                                    .filter(s => s.operator !== operator);
+                            }
+                        } else {
+                            const start = document.getElementById('editTimeStart').value;
+                            const end = document.getElementById('editTimeEnd').value;
+                            
+                            if (!start || !end) {
+                                alert('Please enter both start and end times');
+                                return;
+                            }
+                            
+                            // Format time for display
+                            const timeStr = `${start}-${end}`;
+                            cell.textContent = timeStr;
+                            
+                            // Update schedule data
+                            if (!scheduleData[scheduleType]) scheduleData[scheduleType] = {};
+                            if (!scheduleData[scheduleType][day]) scheduleData[scheduleType][day] = [];
+                            
+                            const existingShift = scheduleData[scheduleType][day]
+                                .find(s => s.operator === operator);
+                            
+                            if (existingShift) {
+                                existingShift.time = timeStr;
+                            } else {
+                                scheduleData[scheduleType][day].push({ operator, time: timeStr });
+                            }
+                        }
+                        
+                        // Add highlight effect
+                        cell.classList.add('updated');
+                        setTimeout(() => cell.classList.remove('updated'), 1000);
+                        
+                        closeEditPopup();
+                        updateOperatorDisplay();
+                    }
+
+                    // Close edit popup
+                    function closeEditPopup() {
+                        document.getElementById('overlay').style.display = 'none';
+                        document.getElementById('editTimePopup').style.display = 'none';
+                        window.currentEdit = null;
+                    }
+
+                    // Initialize on page load
+                    document.addEventListener('DOMContentLoaded', initializeSchedules);
+                    </script>
+
+                    <style>
+                        .edit-time-popup {
+                            position: fixed;
+                            top: 50%;
+                            left: 50%;
+                            transform: translate(-50%, -50%);
+                            background: white;
+                            padding: 24px;
+                            border-radius: 12px;
+                            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+                            z-index: 1000;
+                            width: 90%;
+                            max-width: 400px;
+                            transition: all 0.3s ease;
+                        }
+
+                        .editable-cell {
+                            cursor: pointer;
+                            transition: all 0.2s ease;
+                            position: relative;
+                        }
+
+                        .editable-cell:hover {
+                            background-color: rgba(59, 130, 246, 0.1);
+                        }
+
+                        .editable-cell:hover::after {
+                            content: '✎';
+                            position: absolute;
+                            right: 8px;
+                            top: 50%;
+                            transform: translateY(-50%);
+                            color: #3b82f6;
+                            opacity: 0.6;
+                        }
+
+                        .updated {
+                            animation: highlight 1s ease;
+                        }
+
+                        @keyframes highlight {
+                            0% { background-color: rgba(59, 130, 246, 0.2); }
+                            100% { background-color: transparent; }
+                        }
+                    </style>
+
+                        <script>
+                        // Initialize schedules
+                        function initializeSchedules() {
+                            const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                            
+                            // Initialize schedule if not exists
+                            if (!window.schedule) {
+                                window.schedule = {
+                                    Monday: [
+                                        { time: "8:00 AM-11:00 AM", operator: "Vuqar/David" },
+                                        { time: "11:00 AM-1:00 PM", operator: "Kanan/Kenny" },
+                                        { time: "1:00 PM-3:00 PM", operator: "Nahida/Emma" },
+                                        { time: "3:00 PM-8:00 PM", operator: "Narmina/Nora" },
+                                        { time: "8:00 PM-10:00 PM", operator: "Orxan/Eric" }
+                                    ],
+                                    // Add other days...
+                                };
+                            }
+                            
+                            // Populate operators schedule
+                            const operatorsBody = document.getElementById('operators-schedule-body');
+                            days.forEach(day => {
+                                const row = document.createElement('tr');
+                                row.innerHTML = `
+                                    <td class="p-3 font-medium">${day}</td>
+                                    <td class="p-3 editable-cell" data-day="${day}" data-operator="Vuqar/David">OFF</td>
+                                    <td class="p-3 editable-cell" data-day="${day}" data-operator="Kanan/Kenny">OFF</td>
+                                    <td class="p-3 editable-cell" data-day="${day}" data-operator="Nahida/Emma">OFF</td>
+                                    <td class="p-3 editable-cell" data-day="${day}" data-operator="Narmina/Nora">OFF</td>
+                                    <td class="p-3 editable-cell" data-day="${day}" data-operator="Orxan/Eric">OFF</td>
+                                `;
+                                operatorsBody.appendChild(row);                            // Populate management schedule
+                            const managementBody = document.getElementById('management-schedule-body');
+                            days.forEach(day => {
+                                const row = document.createElement('tr');
+                                row.innerHTML = `
+                                    <td class="p-3 font-medium">${day}</td>
+                                    <td class="p-3 editable-cell">OFF</td>
+                                    <td class="p-3 editable-cell">OFF</td>
+                                `;
+                                managementBody.appendChild(row);
+                            });
+
+                            // Apply schedule data
+                            Object.entries(schedule).forEach(([day, shifts]) => {
+                                shifts.forEach(shift => {
+                                    const tables = document.querySelectorAll('#schedule-tables table');
+                                    tables.forEach(table => {
+                                        const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.textContent);
+                                        const operatorIndex = headers.indexOf(shift.operator);
+                                        if (operatorIndex !== -1) {
+                                            const row = Array.from(table.querySelectorAll('tbody tr')).find(r => r.cells[0].textContent === day);
+                                            if (row) {
+                                                row.cells[operatorIndex].textContent = shift.time;
+                                            }
+                                        }
+                                    });
+                                });
+                            });
+
+                            makeScheduleEditable();
+                        }
+
+                        // Make schedule editable
+                        function makeScheduleEditable() {
+                            const cells = document.querySelectorAll('.editable-cell');
+                            cells.forEach(cell => {
+                                if (!cell.dataset.initialized) {
+                                    cell.dataset.initialized = 'true';
+                                    cell.addEventListener('click', () => {
+                                        const day = cell.dataset.day;
+                                        const operator = cell.dataset.operator;
+                                    
+                                    // Get current time or defaults
+                                    let startTime = '9:00 AM';
+                                    let endTime = '5:00 PM';
+                                    let status = 'active';
+                                    
+                                    if (cell.textContent !== 'OFF') {
+                                        const [start, end] = cell.textContent.split('-').map(t => t.trim());
+                                        startTime = start;
+                                        endTime = end;
+                                    } else {
+                                        status = 'off';
+                                    }
+                                    
+                                    // Show popup
+                                    document.getElementById('editTimeStart').value = startTime;
+                                    document.getElementById('editTimeEnd').value = endTime;
+                                    document.getElementById('editTimeStatus').value = status;
+                                    
+                                    // Store current cell
+                                    window.currentEditCell = {
+                                        element: cell,
+                                        day: day,
+                                        operator: operator
+                                    };
+                                    
+                                    // Show popup
+                                    document.getElementById('overlay').style.display = 'block';
+                                    const popup = document.getElementById('editTimePopup');
+                                    popup.style.display = 'block';
+                                });
+                            });
+                        }
+
+                        // Save time changes
+                        function saveTimeChanges() {
+                            if (!window.currentEditCell) return;
+                            
+                            const { element, day, operator } = window.currentEditCell;
+                            const status = document.getElementById('editTimeStatus').value;
+                            
+                            if (status === 'off') {
+                                element.textContent = 'OFF';
+                                // Update schedule data
+                                if (schedule[day]) {
+                                    schedule[day] = schedule[day].filter(s => s.operator !== operator);
+                                }
+                            } else {
+                                const startTime = document.getElementById('editTimeStart').value.trim();
+                                const endTime = document.getElementById('editTimeEnd').value.trim();
+                                
+                                if (!startTime || !endTime) {
+                                    alert('Please enter both start and end times');
+                                    return;
+                                }
+                                
+                                // Validate time format
+                                const timeRegex = /^(1[0-2]|0?[1-9]):[0-5][0-9]\s*(AM|PM)$/i;
+                                if (!timeRegex.test(startTime) || !timeRegex.test(endTime)) {
+                                    alert('Please enter times in format: HH:MM AM/PM');
+                                    return;
+                                }
+                                
+                                // Update cell
+                                element.textContent = `${startTime}-${endTime}`;
+                                element.classList.add('updated');
+                                setTimeout(() => element.classList.remove('updated'), 1000);
+                                
+                                // Update schedule data
+                                if (!schedule[day]) schedule[day] = [];
+                                const existingShift = schedule[day].find(s => s.operator === operator);
+                                if (existingShift) {
+                                    existingShift.time = `${startTime}-${endTime}`;
+                                } else {
+                                    schedule[day].push({ operator, time: `${startTime}-${endTime}` });
+                                }
+                            }
+                            
+                            closeEditPopup();
+                            updateOperatorDisplay();
+                        }
+
+                        // Close edit popup
+                        function closeEditPopup() {
+                            document.getElementById('overlay').style.display = 'none';
+                            document.getElementById('editTimePopup').style.display = 'none';
+                            window.currentEditCell = null;
+                        }
+
+                        // Initialize on page load
+                        document.addEventListener('DOMContentLoaded', () => {
+                            initializeSchedules();
+                        });
+                    </script>
+                </div>
+                
+                <!-- Integrated Browser -->
+                <div class="card p-4 mb-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold" style="color: var(--secondary-color);">Web Browser</h3>
+                    </div>
+                    <div class="flex flex-col space-y-2">
+                        <div class="flex gap-2">
+                            <input type="text" id="browserUrl" placeholder="Enter URL (e.g., https://www.google.com)" 
+                                   class="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"/>
+                            <button onclick="loadBrowserUrl()" 
+                                    class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+                                Go
+                            </button>
+                        </div>
+                        <div style="height: 600px; position: relative;">
+                            <iframe id="browserFrame" 
+                                    sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-downloads allow-modals"
+                                    style="width: 100%; height: 100%; border: none; border-radius: 8px;"
+                                    src="about:blank">
+                            </iframe>
+                            <div id="browserError" style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+                                                        background: rgba(255, 0, 0, 0.1); padding: 20px; border-radius: 8px; text-align: center;">
+                                Unable to display the requested website due to security restrictions.
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
@@ -405,48 +1703,486 @@
                 </div>
                 <p class="text-lg" style="color: var(--primary-color);">This is your operator dashboard. Use the tabs above to navigate.</p>
             </div>
-
-            <!-- SCHEDULES: Vertical Layout -->
-            <div id="schedules" class="content-section fade-in">
-                <h2 class="text-3xl font-bold mb-6" style="font-family: 'Poppins', sans-serif; color: var(--primary-color);">Work Schedule</h2>
-                <div class="grid grid-cols-1 gap-8">
-                    <div>
-                        <h3 class="text-xl font-semibold mb-3" style="color: var(--secondary-color);">Dispatching Schedule</h3>
-                        <div id="dispatching-schedule" class="overflow-x-auto rounded-lg border"></div>
-                    </div>
-                    <div>
-                        <h3 class="text-xl font-semibold mb-3" style="color: var(--secondary-color);">Management Schedule</h3>
-                        <div id="management-schedule" class="overflow-x-auto rounded-lg border"></div>
-                    </div>
-                </div>
-                 <div class="mt-4 text-right">
-                    <button onclick="saveSchedules()" class="btn-primary">Save Schedule Changes</button>
-                </div>
-            </div>
             
             <div id="property-management" class="content-section fade-in">
-                <div class="flex justify-between items-center mb-4">
+                <div class="flex justify-between items-center mb-6">
                     <h2 class="text-3xl font-bold" style="font-family: 'Poppins', sans-serif; color: var(--primary-color);">Property Management List</h2>
                     <button onclick="openAddModal('propertyManagement')" class="btn-success">Add New PM</button>
                 </div>
-                <input type="text" id="pm-search" placeholder="Search companies..." class="w-full search-input mb-6">
-                <div id="property-management-table" class="table-container rounded-lg border"></div>
+                
+                <!-- Search and Filters -->
+                <div class="card p-4 mb-6">
+                    <div class="flex flex-col md:flex-row gap-4">
+                        <div class="flex-1">
+                            <input type="text" id="pm-search" placeholder="Search property management companies..." class="search-input w-full"
+                                   oninput="filterPropertyManagement()">
+                        </div>
+                        <div class="flex gap-2">
+                            <select id="pm-status-filter" class="px-4 py-2 border border-gray-300 rounded-lg text-sm"
+                                    onchange="filterPropertyManagement()">
+                                <option value="">All Status</option>
+                                <option value="Active">Active</option>
+                                <option value="Inactive">Inactive</option>
+                                <option value="Pending">Pending</option>
+                            </select>
+                            <button onclick="exportPropertyManagement()" class="px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition-colors">
+                                Export
+                            </button>
+                        </div>
+                    </div>
             </div>
             
-            <!-- PAYMENTS: Sorting, Totals, and Dollar Symbol added -->
+                <!-- Enhanced Table -->
+                <div class="card p-0 overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full table-auto text-sm">
+                            <thead class="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+                                <tr>
+                                    <th class="p-4 font-semibold text-left">Company Name</th>
+                                    <th class="p-4 font-semibold text-left">Contact Person</th>
+                                    <th class="p-4 font-semibold text-left">Phone</th>
+                                    <th class="p-4 font-semibold text-left">Email</th>
+                                    <th class="p-4 font-semibold text-left">Properties</th>
+                                    <th class="p-4 font-semibold text-left">Status</th>
+                                    <th class="p-4 font-semibold text-left">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pm-table-body" class="divide-y divide-gray-200">
+                                <!-- Data will be populated by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Table Footer -->
+                    <div class="bg-gray-50 px-4 py-3 border-t">
+                        <div class="flex justify-between items-center text-sm text-gray-600">
+                            <span id="pm-count">0 companies</span>
+                            <div class="flex gap-2">
+                                <button onclick="refreshPropertyManagement()" class="text-blue-500 hover:text-blue-700">Refresh</button>
+                                <button onclick="clearPropertyManagement()" class="text-red-500 hover:text-red-700">Clear All</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <script>
+                // Property Management data handling
+                let propertyManagementData = [];
+                
+                // Load property management data from Excel file
+                async function loadPropertyManagementData() {
+                    try {
+                        const response = await fetch('The Bay Services - Automatic Asnwers & Service Information (1).xlsx');
+                        const data = await response.arrayBuffer();
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        
+                        // Assume first sheet contains property management data
+                        const firstSheetName = workbook.SheetNames[0];
+                        const worksheet = workbook.Sheets[firstSheetName];
+                        
+                        // Convert to JSON
+                        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+                        
+                        // Process and clean data
+                        propertyManagementData = jsonData.map(row => ({
+                            companyName: row['Company Name'] || '',
+                            contactPerson: row['Contact Person'] || '',
+                            phone: row['Phone'] || '',
+                            email: row['Email'] || '',
+                            properties: row['Properties'] || '',
+                            status: row['Status'] || 'Pending'
+                        }));
+                        
+                        // Update table
+                        displayPropertyManagement();
+                        updatePMCount();
+                        
+                    } catch (error) {
+                        console.error('Error loading property management data:', error);
+                        // Initialize with empty data if load fails
+                        propertyManagementData = [];
+                        displayPropertyManagement();
+                        updatePMCount();
+                    }
+                }
+
+                // Display property management data
+                function displayPropertyManagement(data = propertyManagementData) {
+                    const tbody = document.getElementById('pm-table-body');
+                    tbody.innerHTML = '';
+                    
+                    data.forEach(pm => {
+                        const tr = document.createElement('tr');
+                        tr.className = 'hover:bg-gray-50';
+                        tr.innerHTML = `
+                            <td class="p-4">${pm.companyName || ''}</td>
+                            <td class="p-4">${pm.contactPerson || ''}</td>
+                            <td class="p-4">${pm.phone || ''}</td>
+                            <td class="p-4">${pm.email || ''}</td>
+                            <td class="p-4">${pm.properties || ''}</td>
+                            <td class="p-4">
+                                <span class="px-2 py-1 rounded-full text-xs font-medium
+                                    ${pm.status === 'Active' ? 'bg-green-100 text-green-800' :
+                                      pm.status === 'Inactive' ? 'bg-red-100 text-red-800' :
+                                      'bg-yellow-100 text-yellow-800'}">
+                                    ${pm.status || 'Pending'}
+                                </span>
+                            </td>
+                            <td class="p-4">
+                                <div class="flex gap-2">
+                                    <button onclick="editPM(this)" class="text-blue-500 hover:text-blue-700">Edit</button>
+                                    <button onclick="deletePM(this)" class="text-red-500 hover:text-red-700">Delete</button>
+                                </div>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
+
+                // Filter property management data
+                function filterPropertyManagement() {
+                    const searchTerm = document.getElementById('pm-search').value.toLowerCase();
+                    const statusFilter = document.getElementById('pm-status-filter').value;
+                    
+                    const filteredData = propertyManagementData.filter(pm => {
+                        const matchesSearch = Object.values(pm).some(value => 
+                            String(value).toLowerCase().includes(searchTerm)
+                        );
+                        const matchesStatus = !statusFilter || pm.status === statusFilter;
+                        return matchesSearch && matchesStatus;
+                    });
+                    
+                    displayPropertyManagement(filteredData);
+                    updatePMCount(filteredData.length);
+                }
+
+                // Update property management count
+                function updatePMCount(count = propertyManagementData.length) {
+                    document.getElementById('pm-count').textContent = `${count} companies`;
+                }
+
+                // Edit property management entry
+                function editPM(button) {
+                    const row = button.closest('tr');
+                    const cells = row.cells;
+                    const data = {
+                        companyName: cells[0].textContent,
+                        contactPerson: cells[1].textContent,
+                        phone: cells[2].textContent,
+                        email: cells[3].textContent,
+                        properties: cells[4].textContent,
+                        status: cells[5].querySelector('span').textContent.trim()
+                    };
+                    
+                    // Save original data for comparison
+                    row.dataset.originalData = JSON.stringify(data);
+                    
+                    // Make cells editable
+                    for (let i = 0; i < cells.length - 1; i++) {
+                        const cell = cells[i];
+                        if (i === 5) { // Status cell
+                            const currentStatus = data.status;
+                            cell.innerHTML = `
+                                <select class="w-full p-1 border rounded">
+                                    <option value="Active" ${currentStatus === 'Active' ? 'selected' : ''}>Active</option>
+                                    <option value="Inactive" ${currentStatus === 'Inactive' ? 'selected' : ''}>Inactive</option>
+                                    <option value="Pending" ${currentStatus === 'Pending' ? 'selected' : ''}>Pending</option>
+                                </select>
+                            `;
+                        } else {
+                            const text = cell.textContent;
+                            cell.innerHTML = `<input type="text" class="w-full p-1 border rounded" value="${text}">`;
+                        }
+                    }
+                    
+                    // Change Edit button to Save
+                    button.textContent = 'Save';
+                    button.onclick = () => savePM(button);
+                }
+
+                // Save property management changes
+                function savePM(button) {
+                    const row = button.closest('tr');
+                    const cells = row.cells;
+                    const newData = {
+                        companyName: cells[0].querySelector('input').value,
+                        contactPerson: cells[1].querySelector('input').value,
+                        phone: cells[2].querySelector('input').value,
+                        email: cells[3].querySelector('input').value,
+                        properties: cells[4].querySelector('input').value,
+                        status: cells[5].querySelector('select').value
+                    };
+                    
+                    // Update data in array
+                    const originalData = JSON.parse(row.dataset.originalData);
+                    const index = propertyManagementData.findIndex(pm => 
+                        pm.companyName === originalData.companyName &&
+                        pm.contactPerson === originalData.contactPerson
+                    );
+                    
+                    if (index !== -1) {
+                        propertyManagementData[index] = newData;
+                    }
+                    
+                    // Refresh display
+                    displayPropertyManagement();
+                }
+
+                // Delete property management entry
+                function deletePM(button) {
+                    if (!confirm('Are you sure you want to delete this entry?')) return;
+                    
+                    const row = button.closest('tr');
+                    const companyName = row.cells[0].textContent;
+                    const contactPerson = row.cells[1].textContent;
+                    
+                    // Remove from data array
+                    propertyManagementData = propertyManagementData.filter(pm => 
+                        pm.companyName !== companyName || pm.contactPerson !== contactPerson
+                    );
+                    
+                    // Refresh display
+                    displayPropertyManagement();
+                    updatePMCount();
+                }
+
+                // Load data when page loads
+                document.addEventListener('DOMContentLoaded', () => {
+                    loadPropertyManagementData();
+                });
+            </script>
+            
+                <!-- OUTSTANDING PAYMENT LIST: Enhanced with payment status -->
             <div id="payments" class="content-section fade-in">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-3xl font-bold" style="font-family: 'Poppins', sans-serif; color: var(--primary-color);">Outstanding Payment List</h2>
                     <button onclick="openAddModal('outstandingPayments')" class="btn-success">Add New Payment</button>
                 </div>
-                <input type="text" id="op-search" placeholder="Search customers..." class="w-full search-input mb-6">
-                <div id="outstanding-payments-table" class="table-container rounded-lg border"></div>
+                
+                <!-- Filter Options -->
+                <div class="flex gap-4 mb-6">
+                    <input type="text" id="op-search" placeholder="Search customers..." class="flex-1 search-input"
+                           oninput="filterPayments()">
+                    <select id="payment-status-filter" class="search-input" onchange="filterPayments()">
+                        <option value="all">All Payments</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Paid">Paid</option>
+                        <option value="Overdue">Overdue</option>
+                    </select>
+                </div>
+                
+                <div class="card p-0 overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full table-auto text-sm">
+                            <thead class="bg-gradient-to-r from-orange-500 to-red-600 text-white">
+                                <tr>
+                                    <th class="p-4 font-semibold text-left">Customer</th>
+                                    <th class="p-4 font-semibold text-left">Contact</th>
+                                    <th class="p-4 font-semibold text-left">Invoice</th>
+                                    <th class="p-4 font-semibold text-left">Amount</th>
+                                    <th class="p-4 font-semibold text-left">Due Days</th>
+                                    <th class="p-4 font-semibold text-left">Status</th>
+                                    <th class="p-4 font-semibold text-left">Note</th>
+                                </tr>
+                            </thead>
+                            <tbody id="payment-table-body" class="divide-y divide-gray-200">
+                                <!-- Data will be populated by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
                 <div id="outstanding-payments-total" class="mt-4 text-right font-bold text-lg text-gray-700"></div>
-            </div>
-
-            <!-- AUTOMATIC ANSWERS: Made bigger -->
+                
+                <script>
+                    let paymentData = [];
+                    
+                    // Initialize payment data
+                    function initializePayments() {
+                        paymentData = [
+                            { customer: "HONEY HOMES", phone: "", email: "", amount: 339.00, invoiceNum: "9634", invoiceDate: "2025-09-15", status: "PAID", dueDays: 5 },
+                            { customer: "W2 PROPERTIES #205", phone: "", email: "noe@w2propertymgt.com", amount: 749.76, invoiceNum: "9621", invoiceDate: "2025-09-12", status: "OUTSTANDING", dueDays: 8 },
+                            { customer: "Joann Dethman.", phone: "(650) 269-0659", email: "joanndethman@gmail.com", amount: 339.00, invoiceNum: "9577", invoiceDate: "2025-09-15", status: "OUTSTANDING", dueDays: 5 },
+                            { customer: "Agile Appliance", phone: "(650) 625-7475", email: "", amount: 379.00, invoiceNum: "9570", invoiceDate: "2025-09-10", status: "OUTSTANDING", dueDays: 10 },
+                            { customer: "Tetiana Grinberg", phone: "(510) 345-9846", email: "tetiana.grinberg@gmail.com", amount: 99.00, invoiceNum: "9503", invoiceDate: "2025-09-05", status: "OUTSTANDING", dueDays: 15 },
+                            { customer: "Brittany Njissang.", phone: "(510) 305-5904", email: "bnjissang@gmail.com", amount: 199.00, invoiceNum: "9502", invoiceDate: "2025-09-08", status: "OUTSTANDING", dueDays: 12, note: "will pay after 19, 2 services together" },
+                            { customer: "W2 Property Management", phone: "415-316-4369", email: "laura@w2propertymgt.com", amount: 3432.75, invoiceNum: "9311", invoiceDate: "2025-08-21", status: "OUTSTANDING", dueDays: 30, note: "Please contact on Monday, Sep 9" },
+                            { customer: "Farm Hill Vista 4004 105", phone: "", email: "maj@trifectacommunities.com", amount: 589.00, invoiceNum: "9269", invoiceDate: "2025-08-25", status: "OUTSTANDING", dueDays: 26 },
+                            { customer: "Property Management Silicon Valley", phone: "(951) 805-2000", email: "maintenance@pm-sv.com", amount: 139.00, invoiceNum: "8929", invoiceDate: "2025-07-26", status: "OUTSTANDING", dueDays: 56, note: "1181 Almanor Ln 4063 Palo Alto, CA 94303" },
+                            { customer: "Cerda Zein Real Estimate", phone: "510-239-5636", email: "don@cerdazein.com", amount: 1536.66, invoiceNum: "8680", invoiceDate: "2025-07-13", status: "OUTSTANDING", dueDays: 69, note: "Don said, they will pay, he is waiting answer from their accounting department" },
+                            { customer: "Tammy", phone: "(815) 765-4116", email: "", amount: 139.00, invoiceNum: "7145", invoiceDate: "2025-04-25", status: "OUTSTANDING", dueDays: 148, note: "NO ANSWERING PHONE" },
+                            { customer: "GANEEV", phone: "(415) 438-0936", email: "", amount: 389.00, invoiceNum: "6391", invoiceDate: "2025-02-25", status: "OUTSTANDING", dueDays: 207, note: "No answer" },
+                            { customer: "Colleen Miller", phone: "(925) 705-0886", email: "", amount: 139.00, invoiceNum: "4284", invoiceDate: "2024-12-23", status: "OUTSTANDING", dueDays: 271 },
+                            { customer: "Michele", phone: "(301) 339-4111", email: "", amount: 199.00, invoiceNum: "3442", invoiceDate: "2024-10-24", status: "OUTSTANDING", dueDays: 331, note: "SERVICE DATE Oct 24, 2024" }
+                        ];
+                        displayPayments();
+                        updateTotalAmount();
+                    }
+                    
+                    // Display payments in table
+                    function displayPayments(data = paymentData) {
+                        const tbody = document.getElementById('payment-table-body');
+                        tbody.innerHTML = '';
+                        
+                        data.forEach(payment => {
+                            const tr = document.createElement('tr');
+                            tr.className = 'hover:bg-gray-50';
+                            
+                            // Calculate status color based on days and status
+                            let statusColor = '';
+                            if (payment.status === 'PAID') {
+                                statusColor = 'bg-green-100 text-green-800';
+                            } else if (payment.dueDays > 30) {
+                                statusColor = 'bg-red-100 text-red-800';
+                            } else {
+                                statusColor = 'bg-yellow-100 text-yellow-800';
+                            }
+                            
+                            tr.innerHTML = `
+                                <td class="p-4 editable" data-field="customer">${payment.customer}</td>
+                                <td class="p-4">
+                                    <div class="space-y-1">
+                                        <div class="editable" data-field="phone">${payment.phone}</div>
+                                        <div class="text-sm text-blue-600 editable" data-field="email">${payment.email}</div>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <div class="space-y-1">
+                                        <div class="font-medium editable" data-field="invoiceNum">#${payment.invoiceNum}</div>
+                                        <div class="text-sm text-gray-600 editable" data-field="invoiceDate">${payment.invoiceDate}</div>
+                                    </div>
+                                </td>
+                                <td class="p-4 editable" data-field="amount">$${payment.amount.toFixed(2)}</td>
+                                <td class="p-4 editable" data-field="dueDays">${payment.dueDays}</td>
+                                <td class="p-4 status-cell" data-field="status">
+                                    <span class="px-2 py-1 rounded-full text-xs font-medium ${statusColor}">
+                                        ${payment.status}
+                                    </span>
+                                </td>
+                                <td class="p-4 editable" data-field="note">
+                                    <div class="text-sm text-gray-600">${payment.note || ''}</div>
+                                </td>
+                            `;
+                            tbody.appendChild(tr);
+                        });
+                        
+                        // Make cells editable
+                        document.querySelectorAll('.editable, .status-cell').forEach(cell => {
+                            cell.addEventListener('click', function() {
+                                if (!this.classList.contains('editing')) {
+                                    const value = this.classList.contains('status-cell') ? 
+                                        this.querySelector('span').textContent.trim() :
+                                        this.textContent.trim().replace('$', '');
+                                    
+                                    if (this.classList.contains('status-cell')) {
+                                        this.innerHTML = `
+                                            <select class="w-full p-1 border rounded">
+                                                <option value="Pending" ${value === 'Pending' ? 'selected' : ''}>Pending</option>
+                                                <option value="Paid" ${value === 'Paid' ? 'selected' : ''}>Paid</option>
+                                                <option value="Overdue" ${value === 'Overdue' ? 'selected' : ''}>Overdue</option>
+                                            </select>
+                                        `;
+                                    } else {
+                                        this.innerHTML = `<input type="text" class="w-full p-1 border rounded" value="${value}">`;
+                                    }
+                                    
+                                    this.classList.add('editing');
+                                    
+                                    const input = this.querySelector('input, select');
+                                    input.focus();
+                                    
+                                    input.addEventListener('blur', function() {
+                                        const cell = this.closest('td');
+                                        const newValue = this.value;
+                                        const field = cell.dataset.field;
+                                        const row = cell.closest('tr');
+                                        const index = Array.from(row.parentNode.children).indexOf(row);
+                                        
+                                        // Update data
+                                        if (field === 'amount') {
+                                            paymentData[index][field] = parseFloat(newValue) || 0;
+                                            cell.textContent = '$' + paymentData[index][field];
+                                        } else if (field === 'status') {
+                                            paymentData[index][field] = newValue;
+                                            cell.innerHTML = `
+                                                <span class="px-2 py-1 rounded-full text-xs font-medium
+                                                    ${newValue === 'Paid' ? 'bg-green-100 text-green-800' :
+                                                      newValue === 'Overdue' ? 'bg-red-100 text-red-800' :
+                                                      'bg-yellow-100 text-yellow-800'}">
+                                                    ${newValue}
+                                                </span>
+                                            `;
+                                        } else {
+                                            paymentData[index][field] = newValue;
+                                            cell.textContent = newValue;
+                                        }
+                                        
+                                        cell.classList.remove('editing');
+                                        updateTotalAmount();
+                                    });
+                                    
+                                    input.addEventListener('keypress', function(e) {
+                                        if (e.key === 'Enter') {
+                                            this.blur();
+                                        }
+                                    });
+                                }
+                            });
+                        });
+                    }
+                    
+                    // Filter payments
+                    function filterPayments() {
+                        const searchTerm = document.getElementById('op-search').value.toLowerCase();
+                        const statusFilter = document.getElementById('payment-status-filter').value;
+                        
+                        const filteredData = paymentData.filter(payment => {
+                            const matchesSearch = 
+                                payment.customer.toLowerCase().includes(searchTerm) ||
+                                payment.service.toLowerCase().includes(searchTerm) ||
+                                payment.amount.toString().includes(searchTerm) ||
+                                payment.dueDate.includes(searchTerm) ||
+                                payment.status.toLowerCase().includes(searchTerm);
+                                
+                            const matchesStatus = statusFilter === 'all' || payment.status === statusFilter;
+                            
+                            return matchesSearch && matchesStatus;
+                        });
+                        
+                        displayPayments(filteredData);
+                        updateTotalAmount(filteredData);
+                    }
+                    
+                    // Update total amount
+                    function updateTotalAmount(data = paymentData) {
+                        const total = data.reduce((sum, payment) => sum + payment.amount, 0);
+                        document.getElementById('outstanding-payments-total').textContent = 
+                            `Total Outstanding: $${total.toFixed(2)}`;
+                    }
+                    
+                    // Initialize when page loads
+                    document.addEventListener('DOMContentLoaded', initializePayments);
+                </script>
+            </div>            <!-- AUTOMATIC ANSWERS: Made bigger -->
             <div id="templates" class="content-section fade-in">
                 <h2 class="text-3xl font-bold mb-6" style="font-family: 'Poppins', sans-serif; color: var(--primary-color);">Automatic Answers</h2>
+                
+                <!-- Operator Selection -->
+                <div class="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <h3 class="text-lg font-semibold mb-3" style="color: var(--primary-color);">Select Operator:</h3>
+                    <select id="operator-select" class="search-input" onchange="updateOperatorInAnswers()">
+                        <option value="Thomas">Thomas</option>
+                        <option value="David">David</option>
+                        <option value="Emma">Emma</option>
+                        <option value="Nora">Nora</option>
+                        <option value="Eric">Eric</option>
+                        <option value="Trinity">Trinity</option>
+                        <option value="Kenny">Kenny</option>
+                    </select>
+                    <p class="text-sm text-gray-600 mt-2">Selected operator will automatically replace "[Operator Name]" in all templates.</p>
+                </div>
+                
                 <div id="auto-answers" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
             </div>
 
@@ -477,6 +2213,14 @@
             <div id="browsers" class="content-section fade-in">
                 <h2 class="text-3xl font-bold mb-6" style="font-family: 'Poppins', sans-serif; color: var(--primary-color);">Integrated Browser</h2>
                 <p class="mb-6" style="color: var(--primary-color);">Access all your platforms and services in one integrated browser window.</p>
+                <div id="browser-warning" class="hidden mb-4 p-4 bg-yellow-100 text-yellow-800 rounded-lg">
+                    This website cannot be displayed in the embedded browser due to security restrictions.
+                    <div class="mt-2">
+                        <a href="#" id="external-link" target="_blank" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                            Open in New Window
+                        </a>
+                    </div>
+                </div>
                 
                 <!-- Info Message -->
                 <div class="card p-4 mb-4 bg-blue-50 border-l-4 border-blue-500">
@@ -492,25 +2236,25 @@
                 </div>
                 
                 <!-- Single Browser Window -->
-                <div class="card p-0 overflow-hidden" style="height: 80vh;">
-                    <!-- Browser Header -->
-                    <div class="bg-gradient-to-r from-blue-500 to-blue-600 p-3 text-white">
-                        <div class="flex items-center justify-between mb-2">
+                    <div class="card p-0 overflow-hidden" style="height: 80vh;">
+                        <!-- Browser Header -->
+                        <div class="bg-gradient-to-r from-blue-500 to-blue-600 p-3 text-white">
+                            <div class="flex items-center justify-between mb-2">
                             <h3 class="font-semibold">Bay Services Browser</h3>
-                            <div class="flex gap-2">
+                                <div class="flex gap-2">
                                 <button onclick="refreshBrowser()" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-2 py-1 rounded text-xs">↻</button>
                                 <button onclick="goBackBrowser()" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-2 py-1 rounded text-xs">←</button>
                                 <button onclick="goForwardBrowser()" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-2 py-1 rounded text-xs">→</button>
+                                </div>
                             </div>
-                        </div>
-                        <!-- URL Bar -->
-                        <div class="flex items-center gap-2">
+                            <!-- URL Bar -->
+                            <div class="flex items-center gap-2">
                             <input type="text" id="urlInput" placeholder="Enter URL..." class="flex-1 px-2 py-1 rounded text-sm text-gray-800" onkeypress="handleUrlInput(event)" value="https://www.google.com">
                             <button onclick="navigateBrowser()" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-2 py-1 rounded text-xs">Go</button>
+                            </div>
                         </div>
-                    </div>
-                    
-                    <!-- Platform Buttons -->
+                        
+                        <!-- Platform Buttons -->
                     <div class="p-4 bg-gray-50 border-b">
                         <h4 class="text-sm font-semibold mb-3 text-gray-700">Quick Access Platforms:</h4>
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -526,7 +2270,7 @@
                             <button onclick="openPlatformInNewWindow('thumbtack')" class="platform-btn bg-green-500 hover:bg-green-600 text-white text-sm py-2 px-3 rounded flex items-center justify-center">
                                 <span class="mr-2">🔨</span>Thumbtack
                             </button>
-                        </div>
+                            </div>
                         
                         <!-- Additional Services -->
                         <div class="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -542,12 +2286,18 @@
                             <button onclick="openPlatformInNewWindow('maps')" class="platform-btn bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 px-3 rounded flex items-center justify-center">
                                 <span class="mr-2">🗺️</span>Maps
                             </button>
+                            </div>
                         </div>
+                        
+                        <!-- Browser Content -->
+                        <div class="bg-gray-50 p-4 mb-4 rounded-lg">
+                            <p class="text-sm text-gray-600">
+                                <strong>Note:</strong> Due to security restrictions, external websites cannot be loaded in embedded frames. 
+                                Use the platform buttons below to open services in new windows, or manually navigate to URLs.
+                            </p>
+                        </div>
+                    <iframe id="browser" src="about:blank" class="w-full h-full border-0" style="height: calc(100% - 200px);" sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"></iframe>
                     </div>
-                    
-                    <!-- Browser Content -->
-                    <iframe id="browser" src="https://www.google.com" class="w-full h-full border-0" style="height: calc(100% - 160px);" sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"></iframe>
-                </div>
 
                 <!-- Service Status -->
                 <div class="card p-6 mt-6">
@@ -563,7 +2313,7 @@
                                 <div class="flex justify-between">
                                     <span class="text-sm">Platforms:</span>
                                     <span class="text-green-600 font-semibold text-sm">Ready</span>
-                                </div>
+                            </div>
                             </div>
                         </div>
                         
@@ -583,6 +2333,114 @@
                             </div>
                         </div>
                     </div>
+                            </div>
+                        </div>
+                        
+            <!-- ADMINISTRATIVE FILES SECTION (Manager Only) -->
+            <div id="administrative-files" class="content-section fade-in">
+                <h2 class="text-3xl font-bold mb-6" style="font-family: 'Poppins', sans-serif; color: var(--primary-color);">Administrative Files</h2>
+                <p class="mb-6" style="color: var(--primary-color);">Manage company documents, contracts, and administrative files.</p>
+                
+                <!-- File Upload Area -->
+                <div class="card p-6 mb-6">
+                    <h3 class="text-xl font-semibold mb-4" style="color: var(--secondary-color);">Upload New File</h3>
+                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors">
+                        <div class="text-gray-500 mb-4">
+                            <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                                <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                                </div>
+                        <div class="text-lg font-medium text-gray-900 mb-2">Drop files here or click to upload</div>
+                        <div class="text-sm text-gray-500">PDF, DOC, DOCX, XLS, XLSX, PNG, JPG up to 10MB</div>
+                        <input type="file" id="file-upload" multiple class="hidden" onchange="handleFileUpload(event)">
+                        <button onclick="document.getElementById('file-upload').click()" class="mt-4 btn-primary">Choose Files</button>
+                    </div>
+                </div>
+
+                <!-- File Categories -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                    <div class="card p-4">
+                        <h4 class="font-semibold mb-3" style="color: var(--primary-color);">📄 Contracts</h4>
+                        <div id="contracts-list" class="space-y-2">
+                            <!-- Files will be dynamically added here -->
+                                </div>
+                                </div>
+
+                    <div class="card p-4">
+                        <h4 class="font-semibold mb-3" style="color: var(--primary-color);">📊 Reports</h4>
+                        <div id="reports-list" class="space-y-2">
+                            <!-- Files will be dynamically added here -->
+                                </div>
+                                </div>
+                    
+                    <div class="card p-4">
+                        <h4 class="font-semibold mb-3" style="color: var(--primary-color);">📋 Policies</h4>
+                        <div id="policies-list" class="space-y-2">
+                            <!-- Files will be dynamically added here -->
+                                </div>
+                            </div>
+                        </div>
+
+                <!-- All Files Table -->
+                <div class="card p-6">
+                    <h3 class="text-xl font-semibold mb-4" style="color: var(--secondary-color);">All Administrative Files</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full table-auto text-sm">
+                            <thead>
+                                <tr class="bg-gray-50">
+                                    <th class="p-3 font-semibold text-left">File Name</th>
+                                    <th class="p-3 font-semibold text-left">Category</th>
+                                    <th class="p-3 font-semibold text-left">Size</th>
+                                    <th class="p-3 font-semibold text-left">Upload Date</th>
+                                    <th class="p-3 font-semibold text-left">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="files-table-body">
+                                <!-- Files will be dynamically added here -->
+                            </tbody>
+                        </table>
+                                </div>
+                                </div>
+                                </div>
+                    
+            <!-- GMAIL SECTION -->
+            <div id="gmail" class="content-section fade-in">
+                <h2 class="text-3xl font-bold mb-6" style="font-family: 'Poppins', sans-serif; color: var(--primary-color);">Gmail</h2>
+                <p class="mb-6" style="color: var(--primary-color);">Access your Gmail account directly.</p>
+                
+                <!-- Gmail Container -->
+                <div class="card p-0 overflow-hidden" style="height: 80vh;">
+                    <!-- Gmail Header -->
+                    <div class="bg-gradient-to-r from-red-500 to-red-600 p-3 text-white">
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="font-semibold">Gmail Access</h3>
+                            <div class="flex gap-2">
+                                <button onclick="refreshGmail()" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-2 py-1 rounded text-xs">↻</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Gmail Content -->
+                    <div class="bg-gray-50 p-4 mb-4 rounded-lg">
+                        <div class="flex flex-col items-center justify-center space-y-4">
+                            <div id="googleSignInArea"></div>
+                            <div id="userInfo" class="hidden text-center">
+                                <img id="userPicture" class="w-16 h-16 rounded-full mx-auto" alt="Profile picture">
+                                <p id="userName" class="text-lg font-semibold mt-2"></p>
+                                <p id="userEmail" class="text-gray-600"></p>
+                                <button id="signOut" class="mt-4 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">
+                                    Sign Out
+                                </button>
+                            </div>
+                            <div id="userInfo" class="hidden">
+                                <img id="userPicture" class="w-16 h-16 rounded-full mx-auto" src="" alt="Profile picture">
+                                <p id="userName" class="text-lg font-semibold mt-2"></p>
+                                <p id="userEmail" class="text-gray-600"></p>
+                                <button id="signOut" class="mt-4 bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded">
+                                    Sign Out
+                                </button>
+                            </div>
+                        </div>
                 </div>
             </div>
 
@@ -612,9 +2470,96 @@
 
 
     <script>
+        // --- Schedule Management Functions ---
+        function createEditableCell(content, row, column) {
+            return `
+                <td class="p-3 relative group">
+                    <div class="editable-cell cursor-pointer" 
+                         onclick="makeEditable(this)"
+                         data-row="${row}"
+                         data-column="${column}"
+                         data-original="${content}">
+                        ${content}
+                    </div>
+                </td>
+            `;
+        }
+
+        function makeEditable(element) {
+            const currentValue = element.textContent.trim();
+            const row = element.dataset.row;
+            const column = element.dataset.column;
+            
+            element.innerHTML = `
+                <input type="text" 
+                       class="w-full p-1 border rounded" 
+                       value="${currentValue}"
+                       onblur="saveEdit(this, '${row}', '${column}')"
+                       onkeypress="if(event.key === 'Enter') this.blur()">
+            `;
+            element.querySelector('input').focus();
+        }
+
+        function saveEdit(input, row, column) {
+            const newValue = input.value.trim();
+            const cell = input.parentElement;
+            cell.innerHTML = newValue;
+            
+            dataStore.dispatchingSchedule[row][column] = newValue;
+            localStorage.setItem('schedule', JSON.stringify(dataStore.dispatchingSchedule));
+            updateCurrentlyWorking();
+        }
+
+        function renderSchedule() {
+            const tbody = document.getElementById('operators-schedule-body');
+            tbody.innerHTML = dataStore.dispatchingSchedule.map((day, rowIndex) => `
+                <tr class="hover:bg-gray-50">
+                    ${createEditableCell(day.Days, rowIndex, 'Days')}
+                    ${createEditableCell(day['Vuqar/David'], rowIndex, 'Vuqar/David')}
+                    ${createEditableCell(day['Kanan/Kenny'], rowIndex, 'Kanan/Kenny')}
+                    ${createEditableCell(day['Nahida/Emma'], rowIndex, 'Nahida/Emma')}
+                    ${createEditableCell(day['Narmina/Nora'], rowIndex, 'Narmina/Nora')}
+                    ${createEditableCell(day['Orxan/Eric'], rowIndex, 'Orxan/Eric')}
+                    <td class="p-3">
+                        <button onclick="deleteRow(${rowIndex})" class="text-red-500 hover:text-red-700">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function addNewRow() {
+            const newRow = {
+                "Days": "New Day",
+                "Vuqar/David": "OFF",
+                "Kanan/Kenny": "OFF",
+                "Nahida/Emma": "OFF",
+                "Narmina/Nora": "OFF",
+                "Orxan/Eric": "OFF"
+            };
+            dataStore.dispatchingSchedule.push(newRow);
+            renderSchedule();
+            localStorage.setItem('schedule', JSON.stringify(dataStore.dispatchingSchedule));
+        }
+
+        function deleteRow(index) {
+            if (confirm('Are you sure you want to delete this row?')) {
+                dataStore.dispatchingSchedule.splice(index, 1);
+                renderSchedule();
+                localStorage.setItem('schedule', JSON.stringify(dataStore.dispatchingSchedule));
+            }
+        }
+
+        function saveSchedule() {
+            localStorage.setItem('schedule', JSON.stringify(dataStore.dispatchingSchedule));
+            alert('Schedule saved successfully!');
+        }
+
         // --- DATA STORE ---
         let dataStore = {
-            dispatchingSchedule: [
+            dispatchingSchedule: localStorage.getItem('schedule') ? 
+                JSON.parse(localStorage.getItem('schedule')) : [
                 { "Days": "Monday", "Vuqar/David": "8:00-11:00 AM", "Kanan/Kenny": "11:00 AM-1:00 PM", "Nahida/Emma": "1:00-3:00 PM", "Narmina/Nora": "3:00-8:00 PM", "Orxan/Eric": "8:00-10:00PM" },
                 { "Days": "Tuesday", "Vuqar/David": "8:00-11:00 AM", "Kanan/Kenny": "11:00 AM-1:00 PM", "Nahida/Emma": "1:00-3:00 PM", "Narmina/Nora": "3:00-8:00 PM", "Orxan/Eric": "8:00-10:00PM" },
                 { "Days": "Wednesday", "Vuqar/David": "8:00-11:00 AM", "Kanan/Kenny": "11:00 AM-1:00 PM", "Nahida/Emma": "1:00-3:00 PM", "Narmina/Nora": "3:00-8:00 PM", "Orxan/Eric": "8:00-10:00PM" },
@@ -678,19 +2623,81 @@
                 {"Customer name":"Tetiana Grinberg","Phone number":"(510) 345-9846","Email":"tetiana.grinberg@gmail.com","Amount due":"99","Invoice status":"SENT","HCP Invoice #":"9569","Invoice date":"2025-09-10","Last Contact/Reminder Date":"","Payment status":"PAID","Due period (days)":"7","Note":""}
             ],
             autoAnswers: [
-                 {"Service type": "Air Duct cleaning", "Message": "Hi [Client Name],\n\nThis is Thomas with Bay Services and thank you for considering Air Duct cleaning services with us.\n\n1️⃣— The price of the deep cleaning is $340 up to 10 registers/ducts. Price includes cleaning & sanitizing intake and return duct & vents.\n\n2️⃣ — After 10 vents the price for each vent is $25\n\n3️⃣ — Please kindly note that you will always get a free dryer vent, kitchen exhaust/range and chimney/fireplace inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment."},
-                 {"Service type": "Chimney /fireplace cleaning", "Message": "Hi [Client Name],\n\nThis is Thomas with Bay Services and thank you for considering Chimney/fireplace cleaning services with us.\n\n1️⃣ — The price of the chimney / fireplace inspection and cleaning will be $169.\n\n2️⃣ — Please kindly note that you will always get a free dryer vent, kitchen exhaust/range and HVAC vents/registers inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment."},
-                 {"Service type": "Dryer vent cleaning", "Message": "Hi [Client Name],\n\nThis is Thomas with Bay Services and thank you for considering dryer vent & duct cleaning services with us.\n\n1️⃣ -- The price of a dryer vent cleaning will be $139\n\n2️⃣ -- Please kindly note that you will always get a free chimney / fireplace, kitchen exhaust/range and HVAC vents/registers inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment."},
-                 {"Service type": "Kitchen Exhaust Cleaning", "Message": "Hi [Client Name],\n\nThis is Thomas with Bay Services and thank you for considering Kitchen Exhaust cleaning services with us.\n\n1️⃣ — The price ranges from $199-$499 depending on the level of grease buildup.\n\n2️⃣ — We use professional-grade grease remover and thorough cleaning methods.\n\n3️⃣ — Please kindly note that you will always get a free dryer vent, chimney/fireplace and HVAC vents/registers inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment."},
-                 {"Service type": "Bath Fan Cleaning", "Message": "Hi [Client Name],\n\nThis is Thomas with Bay Services and thank you for considering Bath Fan cleaning services with us.\n\n1️⃣ — The price is $49 per fan (if 2 or more services, price is $39 each).\n\n2️⃣ — We clean the fan blades and motor thoroughly.\n\n3️⃣ — Please kindly note that you will always get a free dryer vent, kitchen exhaust/range and chimney/fireplace inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment."},
-                 {"Service type": "Furnace Cleaning", "Message": "Hi [Client Name],\n\nThis is Thomas with Bay Services and thank you for considering Furnace cleaning services with us.\n\n1️⃣ — The price is $75 for professional furnace cleaning.\n\n2️⃣ — We clean the blower motor and all components.\n\n3️⃣ — Please kindly note that you will always get a free dryer vent, kitchen exhaust/range and chimney/fireplace inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment."},
-                 {"Service type": "AC Unit Cleaning", "Message": "Hi [Client Name],\n\nThis is Thomas with Bay Services and thank you for considering AC Unit (condenser coil) cleaning services with us.\n\n1️⃣ — The price is $199 for professional condenser coil cleaning.\n\n2️⃣ — We remove debris and clean the coils thoroughly.\n\n3️⃣ — Please kindly note that you will always get a free dryer vent, kitchen exhaust/range and chimney/fireplace inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment."},
-                 {"Service type": "Outstanding Payment Request", "Message": "Hi [Client Name],\n\nThis is Thomas with Bay Services. Hope you're doing well.\n\nI'm reaching out about the outstanding payment for invoice #[Invoice #]. We'd appreciate it if you could arrange payment at your earliest convenience.\n\nThank you!\n\nThomas from Bay Services"},
-                 {"Service type": "After Service Follow-up", "Message": "Hi [Client Name],\n\nThis is Thomas with Bay Services. I'm reaching out for a after-service follow-up regarding today's appointment.\n\nCould you please confirm everything went smoothly and share if you have any feedback?\n\nThank you!"},
-                 {"Service type": "Appointment Confirmation", "Message": "Hi [Client Name],\n\nThis is Thomas with Bay Services confirming your appointment for [Date] at [Time].\n\nWe will arrive at the scheduled time. If you need to reschedule, please call us at (650)731-7359.\n\nThank you for choosing Bay Services!"},
-                 {"Service type": "Service Reminder", "Message": "Hi [Client Name],\n\nThis is Thomas with Bay Services reminding you that your [Service Type] is scheduled for [Date] at [Time].\n\nWe will arrive at the scheduled time. If you need to reschedule, please call us at (650)731-7359.\n\nThank you for choosing Bay Services!"},
-                 {"Service type": "General Inquiry Response", "Message": "Hi [Client Name],\n\nThank you for your interest in Bay Services! We provide professional cleaning services including:\n\n• Air Duct Cleaning - $340 (up to 10 vents)\n• Dryer Vent Cleaning - $139\n• Chimney/Fireplace Cleaning - $169\n• Kitchen Exhaust Cleaning - $199-$499\n• Bath Fan Cleaning - $49 each\n• Furnace Cleaning - $75\n• AC Unit Cleaning - $199\n\nAll services include free inspections of other systems!\n\n📞 Call/text us at (650)731-7359 to schedule your appointment."}
+                 {"Service type": "Air Duct cleaning", "Message": "Hi ,\n\nThis is [Operator Name] with Bay Services and thank you for considering Air Duct cleaning services with us.\n\n1️⃣— The price of the deep cleaning is $340 up to 10 registers/ducts. Price includes cleaning & sanitizing intake and return duct & vents.\n\n2️⃣ — After 10 vents the price for each vent is $25\n\n3️⃣ — Please kindly note that you will always get a free dryer vent, kitchen exhaust/range and chimney/fireplace inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment."},
+                 {"Service type": "Chimney /fireplace cleaning", "Message": "Hi ,\n\nThis is [Operator Name] with Bay Services and thank you for considering Chimney/fireplace cleaning services with us.\n\n1️⃣ — The price of the chimney / fireplace inspection and cleaning will be $169.\n\n2️⃣ — Please kindly note that you will always get a free dryer vent, kitchen exhaust/range and HVAC vents/registers inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment."},
+                 {"Service type": "Dryer vent cleaning", "Message": "Hi ,\n\nThis is [Operator Name] with Bay Services and thank you for considering dryer vent & duct cleaning services with us.\n\n1️⃣ -- The price of a dryer vent cleaning will be $139\n\n2️⃣ -- Please kindly note that you will always get a free chimney / fireplace, kitchen exhaust/range and HVAC vents/registers inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment."},
+                 {"Service type": "Kitchen Exhaust Cleaning", "Message": "Hi ,\n\nThis is [Operator Name] with Bay Services and thank you for considering Kitchen Exhaust cleaning services with us.\n\n1️⃣ — The price ranges from $199-$499 depending on the level of grease buildup.\n\n2️⃣ — We use professional-grade grease remover and thorough cleaning methods.\n\n3️⃣ — Please kindly note that you will always get a free dryer vent, chimney/fireplace and HVAC vents/registers inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment."},
+                 {"Service type": "Bath Fan Cleaning", "Message": "Hi ,\n\nThis is [Operator Name] with Bay Services and thank you for considering Bath Fan cleaning services with us.\n\n1️⃣ — The price is $49 per fan (if 2 or more services, price is $39 each).\n\n2️⃣ — We clean the fan blades and motor thoroughly.\n\n3️⃣ — Please kindly note that you will always get a free dryer vent, kitchen exhaust/range and chimney/fireplace inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment."},
+                 {"Service type": "Furnace Cleaning", "Message": "Hi ,\n\nThis is [Operator Name] with Bay Services and thank you for considering Furnace cleaning services with us.\n\n1️⃣ — The price is $75 for professional furnace cleaning.\n\n2️⃣ — We clean the blower motor and all components.\n\n3️⃣ — Please kindly note that you will always get a free dryer vent, kitchen exhaust/range and chimney/fireplace inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment."},
+                 {"Service type": "AC Unit Cleaning", "Message": "Hi ,\n\nThis is [Operator Name] with Bay Services and thank you for considering AC Unit (condenser coil) cleaning services with us.\n\n1️⃣ — The price is $199 for professional condenser coil cleaning.\n\n2️⃣ — We remove debris and clean the coils thoroughly.\n\n3️⃣ — Please kindly note that you will always get a free dryer vent, kitchen exhaust/range and chimney/fireplace inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment."},
+                 {"Service type": "Outstanding Payment Request", "Message": "Hi ,\n\nThis is [Operator Name] with Bay Services. Hope you're doing well.\n\nI'm reaching out about the outstanding payment for invoice #[Invoice #]. We'd appreciate it if you could arrange payment at your earliest convenience.\n\nThank you!\n\n[Operator Name] from Bay Services"},
+                 {"Service type": "After Service Follow-up", "Message": "Hi ,\n\nThis is [Operator Name] with Bay Services. I'm reaching out for a after-service follow-up regarding today's appointment.\n\nCould you please confirm everything went smoothly and share if you have any feedback?\n\nThank you!"},
+                 {"Service type": "Appointment Confirmation", "Message": "Hi ,\n\nThis is [Operator Name] with Bay Services confirming your appointment for [Date] at [Time].\n\nWe will arrive at the scheduled time. If you need to reschedule, please call us at (650)731-7359.\n\nThank you for choosing Bay Services!"},
+                 {"Service type": "Service Reminder", "Message": "Hi ,\n\nThis is [Operator Name] with Bay Services reminding you that your [Service Type] is scheduled for [Date] at [Time].\n\nWe will arrive at the scheduled time. If you need to reschedule, please call us at (650)731-7359.\n\nThank you for choosing Bay Services!"},
+                 {"Service type": "General Inquiry Response", "Message": "Hi ,\n\nThank you for your interest in Bay Services! We provide professional cleaning services including:\n\n• Air Duct Cleaning - $340 (up to 10 vents)\n• Dryer Vent Cleaning - $139\n• Chimney/Fireplace Cleaning - $169\n• Kitchen Exhaust Cleaning - $199-$499\n• Bath Fan Cleaning - $49 each\n• Furnace Cleaning - $75\n• AC Unit Cleaning - $199\n\nAll services include free inspections of other systems!\n\n📞 Call/text us at (650)731-7359 to schedule your appointment."}
             ],
+
+            // Функции для определения текущего работника
+            getCurrentlyWorking: function() {
+                const now = new Date();
+                const dayOfWeek = now.toLocaleString('en-US', { weekday: 'long' });
+                const currentHour = now.getHours();
+                const currentMinute = now.getMinutes();
+                const currentTime = currentHour + currentMinute / 60;
+
+                // Найти расписание для текущего дня
+                const schedule = this.dispatchingSchedule.find(day => day.Days === dayOfWeek);
+                if (!schedule) return { operator: 'No schedule found for today', time: '' };
+
+                // Проверяем каждую смену
+                for (const [person, timeSlot] of Object.entries(schedule)) {
+                    if (person === 'Days' || timeSlot === 'OFF') continue;
+
+                    const [startTime, endTime] = timeSlot.split('-');
+                    const start = this.convertTimeToDecimal(startTime);
+                    const end = this.convertTimeToDecimal(endTime);
+
+                    if (currentTime >= start && currentTime <= end) {
+                        return { 
+                            operator: person, 
+                            time: `${startTime} - ${endTime}`,
+                            nextShift: this.getNextShift(schedule, currentTime)
+                        };
+                    }
+                }
+
+                return { operator: 'No one is currently scheduled', time: '', nextShift: '' };
+            },
+
+            convertTimeToDecimal: function(timeStr) {
+                const [time, meridian] = timeStr.split(' ');
+                let [hours, minutes] = (time || '').split(':').map(Number);
+                
+                if (meridian === 'PM' && hours !== 12) hours += 12;
+                if (meridian === 'AM' && hours === 12) hours = 0;
+                
+                return hours + (minutes || 0) / 60;
+            },
+
+            getNextShift: function(schedule, currentTime) {
+                let nextShift = '';
+                let minStartTime = 24;
+
+                for (const [person, timeSlot] of Object.entries(schedule)) {
+                    if (person === 'Days' || timeSlot === 'OFF') continue;
+
+                    const [startTime] = timeSlot.split('-');
+                    const start = this.convertTimeToDecimal(startTime);
+
+                    if (start > currentTime && start < minStartTime) {
+                        minStartTime = start;
+                        nextShift = `Next: ${person} at ${startTime}`;
+                    }
+                }
+
+                return nextShift;
+            },
+
             serviceInfo: [
                 {"SERVICE":"Dryer Vent Cleaning","WHEN IT NEEDS":"• Clothes take longer to dry.\n• Dryer feels very hot or shuts off due to overheating.\n• Burning smell or visible lint around the dryer.\n• Lint is blowing back inside or you see lint around the outside vent.","SERVICE FREQUENCY":"• Once a year\n• Every 6 months if the dryer is used frequently (more than 4 times a week) or if there are pets in the house.","SERVICE METHODS":"• Rotary brush","SERVICE STAGES":"• Inspection\n• Interior Cleaning\n• Airflow Measurement\n• Exterior Cleaning (If Required)","SERVICE DURATION":"30 mins","NOTES":""},
                 {"SERVICE":"Air Ducts Cleaning","WHEN IT NEEDS":"• Visible dust blowing from supply vents.\n• Uneven airflow or weak airflow in rooms.\n• Allergies, asthma, or respiratory issues increase indoors.\n• After construction/renovation (dust/debris in system).\n• Mold, pests, or rodents suspected inside ducts.","SERVICE FREQUENCY":"• Every 3-5 years","SERVICE METHODS":"• Negative Pressure (Industrial Vacuum)\n• Rotary brush","SERVICE STAGES":"• Covering all vents with a magnetic cover\n• Creating negative pressure inside the air duct system\n• Cleaning each vent with an air compressor\n• Sanitizing","SERVICE DURATION":"1-2 hours","NOTES":""},
@@ -925,8 +2932,56 @@
             document.getElementById('services-prices').innerHTML = createEditableTable('services', filteredData, dataHeaders.services);
         }
         function renderPropertyManagement(filter = '') {
-            const filteredData = dataStore.propertyManagement.filter(pm => Object.values(pm).some(val => String(val).toLowerCase().includes(filter.toLowerCase())));
-            document.getElementById('property-management-table').innerHTML = createEditableTable('propertyManagement', filteredData, dataHeaders.propertyManagement);
+            const container = document.getElementById('pm-table-body');
+            const countContainer = document.getElementById('pm-count');
+            if (!container) return;
+
+            const statusFilter = document.getElementById('pm-status-filter')?.value || '';
+            
+            const filteredData = dataStore.propertyManagement.filter(pm => {
+                const matchesSearch = (pm.companyName?.toLowerCase() || '').includes(filter.toLowerCase()) ||
+                    (pm.contactPerson?.toLowerCase() || '').includes(filter.toLowerCase()) ||
+                    (pm.phone || '').includes(filter) ||
+                    (pm.email?.toLowerCase() || '').includes(filter.toLowerCase());
+                
+                const matchesStatus = !statusFilter || pm.status === statusFilter;
+                
+                return matchesSearch && matchesStatus;
+            });
+
+            if (countContainer) {
+                countContainer.textContent = `${filteredData.length} companies`;
+            }
+
+            if (filteredData.length === 0) {
+                container.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-gray-500">No property management companies found</td></tr>';
+                return;
+            }
+
+            container.innerHTML = filteredData.map((pm, index) => `
+                <tr class="border-b hover:bg-gray-50 transition-colors">
+                    <td class="p-4 font-medium">${pm.companyName}</td>
+                    <td class="p-4">${pm.contactPerson}</td>
+                    <td class="p-4">
+                        <a href="tel:${pm.phone}" class="text-blue-500 hover:text-blue-700">${pm.phone}</a>
+                    </td>
+                    <td class="p-4">
+                        <a href="mailto:${pm.email}" class="text-blue-500 hover:text-blue-700">${pm.email}</a>
+                    </td>
+                    <td class="p-4">${pm.properties}</td>
+                    <td class="p-4">
+                        <span class="px-3 py-1 rounded-full text-xs font-medium ${pm.status === 'Active' ? 'bg-green-100 text-green-800' : pm.status === 'Inactive' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}">
+                            ${pm.status}
+                        </span>
+                    </td>
+                    <td class="p-4">
+                        <div class="flex gap-2">
+                            <button onclick="editItem('propertyManagement', ${index})" class="text-blue-500 hover:text-blue-700 text-sm font-medium">Edit</button>
+                            <button onclick="deleteItem('propertyManagement', ${index})" class="text-red-500 hover:text-red-700 text-sm font-medium">Delete</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
         }
         
         function sortTable(column) {
@@ -961,12 +3016,16 @@
             renderOutstandingPayments();
         }
         
-        function renderOutstandingPayments(filter = '') {
+        function renderOutstandingPayments(filter = '', statusFilter = 'all') {
             const headers = dataHeaders.outstandingPayments;
             const container = document.getElementById('outstanding-payments-table');
             
-            // Filtering
-            const filteredData = dataStore.outstandingPayments.filter(op => Object.values(op).some(val => String(val).toLowerCase().includes(filter.toLowerCase())));
+            // Filtering by search and status
+            let filteredData = dataStore.outstandingPayments.filter(op => {
+                const matchesSearch = Object.values(op).some(val => String(val).toLowerCase().includes(filter.toLowerCase()));
+                const matchesStatus = statusFilter === 'all' || String(op['Payment status']).toLowerCase() === statusFilter.toLowerCase();
+                return matchesSearch && matchesStatus;
+            });
 
             // Table Header
             let table = '<table class="w-full table-auto text-sm">';
@@ -984,19 +3043,31 @@
             table += '<tbody class="divide-y divide-gray-100">';
             filteredData.forEach(row => {
                 const originalIndex = dataStore.outstandingPayments.indexOf(row);
-                table += `<tr data-index="${originalIndex}">`;
+                const isPaid = String(row['Payment status']).toLowerCase() === 'paid';
+                const rowClass = isPaid ? 'opacity-60 bg-gray-50' : '';
+                table += `<tr data-index="${originalIndex}" class="${rowClass}">`;
                 headers.forEach(header => {
                     const value = row[header] || '';
                     let cellContent = value;
                     if (header === 'Payment status') {
-                        const statusClass = String(value).toLowerCase() === 'paid' ? 'text-green-600 bg-green-100' : 'text-red-600 bg-red-100';
+                        const statusClass = isPaid ? 'text-green-600 bg-green-100' : 'text-red-600 bg-red-100';
                         cellContent = `<span class="px-2 py-1 rounded-full text-xs font-medium ${statusClass}">${value}</span>`;
                     } else if (header === 'Amount due') {
                          cellContent = `$${parseFloat(value).toFixed(2)}`;
+                    } else if (isPaid) {
+                        cellContent = `<span class="line-through text-gray-500">${cellContent}</span>`;
                     }
                     table += `<td class="p-3 text-gray-700">${cellContent}</td>`;
                 });
-                table += `<td class="p-3"><button onclick="openEditModal('outstandingPayments', ${originalIndex})" class="action-button text-blue-500 hover:underline mr-2">Edit</button><button onclick="deleteRow('outstandingPayments', ${originalIndex})" class="action-button text-red-500 hover:underline">Delete</button></td>`;
+                
+                // Action buttons
+                table += `<td class="p-3">`;
+                if (!isPaid) {
+                    table += `<button onclick="markAsPaid(${originalIndex})" class="action-button text-green-500 hover:underline mr-2">Mark Paid</button>`;
+                }
+                table += `<button onclick="openEditModal('outstandingPayments', ${originalIndex})" class="action-button text-blue-500 hover:underline mr-2">Edit</button>`;
+                table += `<button onclick="deleteRow('outstandingPayments', ${originalIndex})" class="action-button text-red-500 hover:underline">Delete</button>`;
+                table += `</td>`;
                 table += '</tr>';
             });
             table += '</tbody></table>';
@@ -1010,19 +3081,43 @@
                 }
             });
             document.getElementById('outstanding-payments-total').innerHTML = `
-                <span>Total of Outstanding Payments: <span class="text-red-600">$${outstandingAmount.toFixed(2)}</span></span>
+                <span>Total of Outstanding Payments: <span class="text-red-600 font-bold">$${outstandingAmount.toFixed(2)}</span></span>
             `;
+        }
+
+        function markAsPaid(index) {
+            if (confirm('Mark this payment as paid?')) {
+                dataStore.outstandingPayments[index]['Payment status'] = 'PAID';
+                renderOutstandingPayments();
+                showNotification('Payment marked as paid');
+            }
+        }
+
+        function filterPaymentsByStatus() {
+            const statusFilter = document.getElementById('payment-status-filter').value;
+            const searchFilter = document.getElementById('op-search').value;
+            renderOutstandingPayments(searchFilter, statusFilter);
         }
 
         function renderAutoAnswers() {
             const container = document.getElementById('auto-answers');
-            container.innerHTML = dataStore.autoAnswers.map((answer, index) => `
+            const selectedOperator = document.getElementById('operator-select') ? document.getElementById('operator-select').value : 'Thomas';
+            
+            container.innerHTML = dataStore.autoAnswers.map((answer, index) => {
+                const processedMessage = answer.Message.replace(/\[Operator Name\]/g, selectedOperator);
+                return `
                 <div class="template-card flex flex-col">
                     <h4 class="font-semibold text-gray-800 mb-3">${answer['Service type']}</h4>
-                    <textarea readonly class="text-sm text-gray-600 bg-gray-50 p-4 rounded-lg flex-grow resize-none h-64">${answer.Message}</textarea>
-                    <button onclick="copyToClipboard(dataStore.autoAnswers[${index}].Message)" class="copy-button mt-4 w-full btn-primary">Copy Text</button>
+                        <textarea readonly class="text-sm text-gray-600 bg-gray-50 p-4 rounded-lg flex-grow resize-none h-64">${processedMessage}</textarea>
+                        <button onclick="copyToClipboard('${processedMessage.replace(/'/g, "\\'")}')" class="copy-button mt-4 w-full btn-primary">Copy Text</button>
                 </div>
-            `).join('');
+                `;
+            }).join('');
+        }
+
+        function updateOperatorInAnswers() {
+            renderAutoAnswers();
+            showNotification('Operator updated in all templates');
         }
         
         function renderServiceInfoGrid() {
@@ -1063,14 +3158,19 @@
             // Compact Dispatching Schedule
             const dispatchContainer = document.getElementById('dashboard-dispatching-schedule');
             if (dispatchContainer) {
-                let html = '<div class="space-y-2">';
+                let html = '<div class="space-y-3">';
                 dataStore.dispatchingSchedule.forEach(day => {
-                    html += `<div class="flex justify-between items-center py-1 border-b border-gray-100">`;
-                    html += `<span class="font-medium text-gray-700">${day.Days}</span>`;
-                    html += `<div class="text-xs text-gray-600">`;
+                    html += `<div class="border-b border-gray-200 pb-2">`;
+                    html += `<div class="font-semibold text-gray-800 mb-2">${day.Days}</div>`;
+                    html += `<div class="grid grid-cols-1 gap-1 text-xs">`;
                     Object.keys(day).forEach(key => {
                         if (key !== 'Days' && day[key] && day[key] !== 'OFF') {
-                            html += `<span class="mr-2">${key}: ${day[key]}</span>`;
+                            const timeSlot = day[key];
+                            const isOff = timeSlot === 'OFF';
+                            html += `<div class="flex justify-between items-center py-1 px-2 rounded ${isOff ? 'bg-gray-100 text-gray-500' : 'bg-blue-50 text-blue-800'}">`;
+                            html += `<span class="font-medium">${key}</span>`;
+                            html += `<span class="text-xs">${timeSlot}</span>`;
+                            html += `</div>`;
                         }
                     });
                     html += `</div></div>`;
@@ -1082,14 +3182,19 @@
             // Compact Management Schedule
             const mgmtContainer = document.getElementById('dashboard-management-schedule');
             if (mgmtContainer) {
-                let html = '<div class="space-y-2">';
+                let html = '<div class="space-y-3">';
                 dataStore.managementSchedule.forEach(day => {
-                    html += `<div class="flex justify-between items-center py-1 border-b border-gray-100">`;
-                    html += `<span class="font-medium text-gray-700">${day.Days}</span>`;
-                    html += `<div class="text-xs text-gray-600">`;
+                    html += `<div class="border-b border-gray-200 pb-2">`;
+                    html += `<div class="font-semibold text-gray-800 mb-2">${day.Days}</div>`;
+                    html += `<div class="grid grid-cols-1 gap-1 text-xs">`;
                     Object.keys(day).forEach(key => {
                         if (key !== 'Days' && day[key] && day[key] !== 'OFF') {
-                            html += `<span class="mr-2">${key}: ${day[key]}</span>`;
+                            const timeSlot = day[key];
+                            const isOff = timeSlot === 'OFF';
+                            html += `<div class="flex justify-between items-center py-1 px-2 rounded ${isOff ? 'bg-gray-100 text-gray-500' : 'bg-green-50 text-green-800'}">`;
+                            html += `<span class="font-medium">${key}</span>`;
+                            html += `<span class="text-xs">${timeSlot}</span>`;
+                            html += `</div>`;
                         }
                     });
                     html += `</div></div>`;
@@ -1180,23 +3285,25 @@
         
         // --- INITIALIZATION ---
         document.addEventListener('DOMContentLoaded', () => {
-            renderSchedules();
-            renderCompactSchedules(); // Add compact schedule to dashboard
-            renderPropertyManagement();
-            renderOutstandingPayments();
-            renderAutoAnswers();
-            renderServiceInfoGrid();
-            renderServicesPrices();
+            // Role selection screen is shown by default
+            // Components will be initialized when role is selected
             
-            updateCaliforniaTime();
-            setInterval(updateCaliforniaTime, 1000);
-            
-            document.getElementById('services-search').addEventListener('input', (e) => renderServicesPrices(e.target.value));
-            document.getElementById('pm-search').addEventListener('input', (e) => renderPropertyManagement(e.target.value));
-            document.getElementById('op-search').addEventListener('input', (e) => renderOutstandingPayments(e.target.value));
-            
-            // Initialize browsers
-            initializeBrowsers();
+            // Start time updates immediately
+            updateHeaderCaliforniaTime();
+            if (window.timeUpdateInterval) {
+                clearInterval(window.timeUpdateInterval);
+            }
+            window.timeUpdateInterval = setInterval(updateHeaderCaliforniaTime, 1000);
+        });
+
+        // Clean up intervals when page is unloaded
+        window.addEventListener('beforeunload', () => {
+            if (window.timeUpdateInterval) {
+                clearInterval(window.timeUpdateInterval);
+            }
+            if (window.staffUpdateInterval) {
+                clearInterval(window.staffUpdateInterval);
+            }
         });
 
         // --- EMBEDDED BROWSER MANAGEMENT FUNCTIONS ---
@@ -1212,8 +3319,8 @@
                 return;
             }
             try {
-                iframe.src = iframe.src;
-                showNotification('Left browser refreshed');
+            iframe.src = iframe.src;
+            showNotification('Left browser refreshed');
             } catch (error) {
                 showNotification('Error refreshing left browser: ' + error.message);
             }
@@ -1226,8 +3333,8 @@
                 return;
             }
             try {
-                iframe.src = iframe.src;
-                showNotification('Right browser refreshed');
+            iframe.src = iframe.src;
+            showNotification('Right browser refreshed');
             } catch (error) {
                 showNotification('Error refreshing right browser: ' + error.message);
             }
@@ -1279,7 +3386,7 @@
 
         function navigateBrowser1() {
             const urlInput = document.getElementById('urlInput1');
-            const iframe = document.getElementById('browser1');
+                const iframe = document.getElementById('browser1');
             
             if (!urlInput || !iframe) {
                 showNotification('Error: Browser elements not found');
@@ -1303,7 +3410,7 @@
 
         function navigateBrowser2() {
             const urlInput = document.getElementById('urlInput2');
-            const iframe = document.getElementById('browser2');
+                const iframe = document.getElementById('browser2');
             
             if (!urlInput || !iframe) {
                 showNotification('Error: Browser elements not found');
@@ -1501,6 +3608,543 @@
                 showNotification('Popup blocked! Please allow popups for this site and try again.');
             }
         }
+
+        // --- ROLE MANAGEMENT ---
+        let currentRole = null;
+        
+        const roleConfigs = {
+            operator: {
+                title: 'Operator Dashboard',
+                tabs: [
+                    { id: 'dashboard', name: 'Dashboard' },
+                    { id: 'property-management', name: 'Property Management List' },
+                    { id: 'templates', name: 'Automatic Answers' },
+                    { id: 'info', name: 'Service Info' },
+                    { id: 'services', name: 'Services & Prices' },
+                    { id: 'map', name: 'Map' },
+                    { id: 'gmail', name: 'Gmail' },
+                    { id: 'browsers', name: 'Browser' }
+                ]
+            },
+            manager: {
+                title: 'Manager Dashboard',
+                tabs: [
+                    { id: 'dashboard', name: 'Dashboard' },
+                    { id: 'property-management', name: 'Property Management List' },
+                    { id: 'payments', name: 'Outstanding Payment List' },
+                    { id: 'administrative-files', name: 'Administrative Files' },
+                    { id: 'gmail', name: 'Gmail' },
+                    { id: 'browsers', name: 'Browser' }
+                ]
+            }
+        };
+
+        function selectRole(role) {
+            currentRole = role;
+            const config = roleConfigs[role];
+            
+            // Hide role selection, show main dashboard
+            document.getElementById('role-selection').style.display = 'none';
+            document.getElementById('main-dashboard').style.display = 'block';
+            
+            // Update title
+            document.getElementById('role-title').textContent = config.title;
+            
+            // Update role switcher buttons
+            updateRoleSwitcher(role);
+            
+            // Generate tabs
+            generateTabs(config.tabs);
+            
+            // Show dashboard by default
+            showTab('dashboard');
+            
+            // Initialize all components
+            initializeComponents();
+            
+            // Start time updates
+            updateHeaderCaliforniaTime();
+            // Clear any existing interval and start new one
+            if (window.timeUpdateInterval) {
+                clearInterval(window.timeUpdateInterval);
+            }
+            window.timeUpdateInterval = setInterval(updateHeaderCaliforniaTime, 1000);
+        }
+
+        function switchRole(role) {
+            if (role === currentRole) return;
+            
+            currentRole = role;
+            const config = roleConfigs[role];
+            
+            // Update title
+            document.getElementById('role-title').textContent = config.title;
+            
+            // Update role switcher buttons
+            updateRoleSwitcher(role);
+            
+            // Generate tabs
+            generateTabs(config.tabs);
+            
+            // Show dashboard by default
+            showTab('dashboard');
+            
+            // Re-initialize components
+            initializeComponents();
+            
+            // Update time display
+            updateHeaderCaliforniaTime();
+        }
+
+        function updateRoleSwitcher(activeRole) {
+            const operatorBtn = document.getElementById('role-operator');
+            const managerBtn = document.getElementById('role-manager');
+            
+            if (operatorBtn && managerBtn) {
+                operatorBtn.classList.toggle('active', activeRole === 'operator');
+                managerBtn.classList.toggle('active', activeRole === 'manager');
+            }
+        }
+
+        function updateHeaderCaliforniaTime() {
+            const now = new Date();
+            const californiaTime = new Date(now.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
+            
+            const timeString = californiaTime.toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+            });
+            
+            const dateString = californiaTime.toLocaleDateString('en-US', {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric'
+            });
+            
+            const headerTimeElement = document.getElementById('header-california-time');
+            if (headerTimeElement) {
+                headerTimeElement.innerHTML = `${timeString}<br><span class="text-sm opacity-75">${dateString}</span>`;
+            } else {
+                console.log('Header time element not found, retrying...');
+                // Retry after a short delay
+                setTimeout(updateHeaderCaliforniaTime, 100);
+            }
+        }
+
+        function generateTabs(tabs) {
+            const nav = document.getElementById('tab-navigation');
+            nav.innerHTML = '<div class="flex flex-wrap items-center gap-3">' +
+                tabs.map(tab => 
+                    `<button onclick="showTab('${tab.id}')" class="tab-button text-sm font-medium px-6 py-3 text-gray-600 rounded-xl transition-all">${tab.name}</button>`
+                ).join('') +
+                '</div>';
+        }
+
+        function initializeComponents() {
+            renderCurrentStaff();
+            renderScheduleTables();
+            renderPropertyManagement();
+            renderOutstandingPayments();
+            renderAutoAnswers();
+            renderServiceInfoGrid();
+            renderServicesPrices();
+            
+            // Add event listeners
+            const servicesSearch = document.getElementById('services-search');
+            const pmSearch = document.getElementById('pm-search');
+            const opSearch = document.getElementById('op-search');
+            
+            if (servicesSearch) servicesSearch.addEventListener('input', (e) => renderServicesPrices(e.target.value));
+            if (pmSearch) pmSearch.addEventListener('input', (e) => renderPropertyManagement(e.target.value));
+            if (opSearch) opSearch.addEventListener('input', (e) => renderOutstandingPayments(e.target.value));
+            
+            initializeBrowsers();
+            
+            // Start updating current staff every 30 seconds
+            if (window.staffUpdateInterval) {
+                clearInterval(window.staffUpdateInterval);
+            }
+            window.staffUpdateInterval = setInterval(renderCurrentStaff, 30000); // Update every 30 seconds
+        }
+
+        // --- HORIZONTAL SCHEDULE AND CURRENT STAFF ---
+        let scheduleViewMode = 'compact';
+
+        function renderCurrentStaff() {
+            const currentStaffContainer = document.getElementById('current-staff');
+            if (!currentStaffContainer) return;
+
+            const now = new Date();
+            const californiaTime = new Date(now.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
+            const currentHour = californiaTime.getHours();
+            const currentMinute = californiaTime.getMinutes();
+            const currentDay = californiaTime.getDay(); // 0 = Sunday, 1 = Monday, etc.
+            
+            // Convert day to our schedule format (Monday = 0, Sunday = 6)
+            const scheduleDayIndex = currentDay === 0 ? 6 : currentDay - 1;
+            const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+            const currentDayName = dayNames[scheduleDayIndex];
+
+            let currentlyWorking = [];
+
+            // Check operators schedule
+            dataStore.dispatchingSchedule.forEach(day => {
+                if (day.Days === currentDayName) {
+                    Object.keys(day).forEach(key => {
+                        if (key !== 'Days' && day[key] && day[key] !== 'OFF') {
+                            const timeSlot = day[key];
+                            if (isCurrentlyWorking(timeSlot, currentHour, currentMinute)) {
+                                currentlyWorking.push({
+                                    name: key,
+                                    role: 'Operator',
+                                    timeSlot: timeSlot,
+                                    type: 'operators'
+                                });
+                            }
+                        }
+                    });
+                }
+            });
+
+            // Check management schedule
+            dataStore.managementSchedule.forEach(day => {
+                if (day.Days === currentDayName) {
+                    Object.keys(day).forEach(key => {
+                        if (key !== 'Days' && day[key] && day[key] !== 'OFF') {
+                            const timeSlot = day[key];
+                            if (isCurrentlyWorking(timeSlot, currentHour, currentMinute)) {
+                                currentlyWorking.push({
+                                    name: key,
+                                    role: 'Manager',
+                                    timeSlot: timeSlot,
+                                    type: 'management'
+                                });
+                            }
+                        }
+                    });
+                }
+            });
+
+            if (currentlyWorking.length === 0) {
+                currentStaffContainer.innerHTML = `
+                    <div class="col-span-2 text-center text-gray-500 py-8">
+                        <div>No one is currently scheduled to work</div>
+                        <div class="text-xs mt-2 text-gray-400">
+                            Current time: ${californiaTime.toLocaleTimeString()} ${currentDayName}
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            currentStaffContainer.innerHTML = currentlyWorking.map(staff => `
+                <div class="card p-4 ${staff.type === 'operators' ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'}">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h4 class="font-semibold text-lg">${staff.name}</h4>
+                            <p class="text-sm text-gray-600">${staff.role}</p>
+                            <p class="text-xs text-gray-500">${staff.timeSlot}</p>
+                            <p class="text-xs text-gray-400 mt-1">
+                                ${californiaTime.toLocaleTimeString()} ${currentDayName}
+                            </p>
+                        </div>
+                        <div class="text-2xl">
+                            ${staff.type === 'operators' ? '📞' : '👩‍💼'}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function isCurrentlyWorking(timeSlot, currentHour, currentMinute = 0) {
+            // Parse various time formats
+            let timeMatch;
+            
+            // Try different time formats
+            if (timeSlot.includes('AM') || timeSlot.includes('PM')) {
+                // Format: "8:00 AM - 5:00 PM" or "8:00AM-5:00PM"
+                timeMatch = timeSlot.match(/(\d{1,2}):(\d{2})\s*(AM|PM)\s*[-–]\s*(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+            } else {
+                // Format: "8:00-17:00" or "8:00-5:00PM"
+                timeMatch = timeSlot.match(/(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})/);
+            }
+            
+            if (!timeMatch) return false;
+
+            let startHour24, endHour24, startMin24, endMin24;
+            
+            if (timeSlot.includes('AM') || timeSlot.includes('PM')) {
+                const [, startHour, startMin, startPeriod, endHour, endMin, endPeriod] = timeMatch;
+                
+                startHour24 = parseInt(startHour);
+                endHour24 = parseInt(endHour);
+                startMin24 = parseInt(startMin);
+                endMin24 = parseInt(endMin);
+                
+                if (startPeriod === 'PM' && startHour24 !== 12) startHour24 += 12;
+                if (startPeriod === 'AM' && startHour24 === 12) startHour24 = 0;
+                
+                if (endPeriod === 'PM' && endHour24 !== 12) endHour24 += 12;
+                if (endPeriod === 'AM' && endHour24 === 12) endHour24 = 0;
+            } else {
+                const [, startHour, startMin, endHour, endMin] = timeMatch;
+                startHour24 = parseInt(startHour);
+                endHour24 = parseInt(endHour);
+                startMin24 = parseInt(startMin);
+                endMin24 = parseInt(endMin);
+            }
+
+            // Convert to minutes for easier comparison
+            const currentTimeInMinutes = currentHour * 60 + currentMinute;
+            const startTimeInMinutes = startHour24 * 60 + startMin24;
+            const endTimeInMinutes = endHour24 * 60 + endMin24;
+
+            return currentTimeInMinutes >= startTimeInMinutes && currentTimeInMinutes < endTimeInMinutes;
+        }
+
+        function renderScheduleTables() {
+            renderOperatorsSchedule();
+            renderManagementSchedule();
+        }
+
+        function renderOperatorsSchedule() {
+            const container = document.getElementById('operators-schedule-body');
+            if (!container) return;
+
+            const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+            const operators = ['Vuqar/David', 'Kanan/Kenny', 'Nahida/Emma', 'Narmina/Nora', 'Orxan/Eric'];
+            
+            let html = '';
+            dayNames.forEach(dayName => {
+                html += `<tr class="hover:bg-gray-50">`;
+                html += `<td class="p-3 font-medium">${dayName}</td>`;
+                
+                operators.forEach(operator => {
+                    const dayData = dataStore.dispatchingSchedule.find(d => d.Days === dayName);
+                    const schedule = dayData && dayData[operator] ? dayData[operator] : 'OFF';
+                    const bgColor = schedule === 'OFF' ? 'bg-gray-50' : 'bg-green-50';
+                    html += `<td class="p-3 ${bgColor}">${schedule}</td>`;
+                });
+                
+                html += `</tr>`;
+            });
+            
+            container.innerHTML = html;
+        }
+
+        function renderManagementSchedule() {
+            const container = document.getElementById('management-schedule-body');
+            if (!container) return;
+
+            const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+            const managers = ['Vuqar/David', 'Nahida/Emma'];
+            
+            let html = '';
+            dayNames.forEach(dayName => {
+                html += `<tr class="hover:bg-gray-50">`;
+                html += `<td class="p-3 font-medium">${dayName}</td>`;
+                
+                managers.forEach(manager => {
+                    const dayData = dataStore.managementSchedule.find(d => d.Days === dayName);
+                    const schedule = dayData && dayData[manager] ? dayData[manager] : 'OFF';
+                    const bgColor = schedule === 'OFF' ? 'bg-gray-50' : 'bg-blue-50';
+                    html += `<td class="p-3 ${bgColor}">${schedule}</td>`;
+                });
+                
+                html += `</tr>`;
+            });
+            
+            container.innerHTML = html;
+        }
+
+        function toggleScheduleView(mode) {
+            scheduleViewMode = mode;
+            
+            // Update button styles
+            document.getElementById('schedule-compact').className = mode === 'compact' 
+                ? 'px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 transition-colors'
+                : 'px-4 py-2 bg-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-400 transition-colors';
+                
+            document.getElementById('schedule-detailed').className = mode === 'detailed'
+                ? 'px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 transition-colors'
+                : 'px-4 py-2 bg-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-400 transition-colors';
+            
+            // Both modes now show the same schedule tables
+            renderScheduleTables();
+        }
+
+
+        // --- ENHANCED PROPERTY MANAGEMENT FUNCTIONS ---
+        function exportPropertyManagement() {
+            const data = dataStore.propertyManagement;
+            const csvContent = "data:text/csv;charset=utf-8," + 
+                "Company Name,Contact Person,Phone,Email,Properties,Status\n" +
+                data.map(pm => `"${pm.companyName}","${pm.contactPerson}","${pm.phone}","${pm.email}","${pm.properties}","${pm.status}"`).join("\n");
+            
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "property_management_export.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            showNotification('Property management data exported successfully');
+        }
+
+        function refreshPropertyManagement() {
+            renderPropertyManagement();
+            showNotification('Property management list refreshed');
+        }
+
+        function clearPropertyManagement() {
+            if (confirm('Are you sure you want to clear all property management data?')) {
+                dataStore.propertyManagement = [];
+                renderPropertyManagement();
+                showNotification('All property management data cleared');
+            }
+        }
+
+        // --- ADMINISTRATIVE FILES MANAGEMENT ---
+        let adminFiles = [];
+
+        function handleFileUpload(event) {
+            const files = Array.from(event.target.files);
+            files.forEach(file => {
+                const fileData = {
+                    id: Date.now() + Math.random(),
+                    name: file.name,
+                    size: formatFileSize(file.size),
+                    uploadDate: new Date().toLocaleDateString(),
+                    category: getFileCategory(file.name),
+                    file: file
+                };
+                adminFiles.push(fileData);
+            });
+            renderAdminFiles();
+            showNotification(`${files.length} file(s) uploaded successfully`);
+        }
+
+        function getFileCategory(fileName) {
+            const ext = fileName.toLowerCase().split('.').pop();
+            if (['pdf', 'doc', 'docx'].includes(ext)) return 'Contracts';
+            if (['xls', 'xlsx', 'csv'].includes(ext)) return 'Reports';
+            if (['png', 'jpg', 'jpeg'].includes(ext)) return 'Policies';
+            return 'Other';
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function renderAdminFiles() {
+            // Render by categories
+            const contracts = adminFiles.filter(f => f.category === 'Contracts');
+            const reports = adminFiles.filter(f => f.category === 'Reports');
+            const policies = adminFiles.filter(f => f.category === 'Policies');
+
+            document.getElementById('contracts-list').innerHTML = contracts.map(file => 
+                `<div class="flex justify-between items-center p-2 bg-gray-50 rounded">
+                    <span class="text-sm">${file.name}</span>
+                    <button onclick="deleteFile('${file.id}')" class="text-red-500 hover:text-red-700">×</button>
+                </div>`
+            ).join('') || '<div class="text-gray-500 text-sm">No files</div>';
+
+            document.getElementById('reports-list').innerHTML = reports.map(file => 
+                `<div class="flex justify-between items-center p-2 bg-gray-50 rounded">
+                    <span class="text-sm">${file.name}</span>
+                    <button onclick="deleteFile('${file.id}')" class="text-red-500 hover:text-red-700">×</button>
+                </div>`
+            ).join('') || '<div class="text-gray-500 text-sm">No files</div>';
+
+            document.getElementById('policies-list').innerHTML = policies.map(file => 
+                `<div class="flex justify-between items-center p-2 bg-gray-50 rounded">
+                    <span class="text-sm">${file.name}</span>
+                    <button onclick="deleteFile('${file.id}')" class="text-red-500 hover:text-red-700">×</button>
+                </div>`
+            ).join('') || '<div class="text-gray-500 text-sm">No files</div>';
+
+            // Render table
+            document.getElementById('files-table-body').innerHTML = adminFiles.map(file => `
+                <tr class="border-b">
+                    <td class="p-3">${file.name}</td>
+                    <td class="p-3">${file.category}</td>
+                    <td class="p-3">${file.size}</td>
+                    <td class="p-3">${file.uploadDate}</td>
+                    <td class="p-3">
+                        <button onclick="downloadFile('${file.id}')" class="text-blue-500 hover:underline mr-2">Download</button>
+                        <button onclick="deleteFile('${file.id}')" class="text-red-500 hover:underline">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function deleteFile(fileId) {
+            if (confirm('Are you sure you want to delete this file?')) {
+                adminFiles = adminFiles.filter(f => f.id !== fileId);
+                renderAdminFiles();
+                showNotification('File deleted');
+            }
+        }
+
+        function downloadFile(fileId) {
+            const file = adminFiles.find(f => f.id === fileId);
+            if (file) {
+                const url = URL.createObjectURL(file.file);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = file.name;
+                a.click();
+                URL.revokeObjectURL(url);
+                showNotification('File download started');
+            }
+        }
+
     </script>
+    <!-- Edit Time Popup -->
+    <div id="overlay"></div>
+    <div id="editTimePopup" class="edit-time-popup" style="display: none;">
+        <h3 class="text-lg font-semibold mb-4">Edit Schedule</h3>
+        <input type="text" id="editTimeStart" placeholder="Start Time (e.g., 8:00 AM)" />
+        <input type="text" id="editTimeEnd" placeholder="End Time (e.g., 3:00 PM)" />
+    <!-- Modals -->
+    <div id="overlay" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50"></div>
+    
+    <!-- Edit Time Popup -->
+    <div id="editTimePopup" class="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white p-6 rounded-lg shadow-xl z-50 hidden">
+        <h3 class="text-xl font-bold mb-4" style="color: var(--primary-color);">Edit Schedule</h3>
+        <div class="space-y-4">
+            <div class="mb-4">
+                <label for="editTimeStatus" class="block text-sm font-medium text-gray-700">Status:</label>
+                <select id="editTimeStatus" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                    <option value="active">Active</option>
+                    <option value="off">OFF</option>
+                </select>
+            </div>
+            <div id="timeInputs">
+                <div>
+                    <label for="editTimeStart" class="block text-sm font-medium text-gray-700">Start Time:</label>
+                    <input type="time" id="editTimeStart" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                </div>
+                <div class="mt-2">
+                    <label for="editTimeEnd" class="block text-sm font-medium text-gray-700">End Time:</label>
+                    <input type="time" id="editTimeEnd" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                </div>
+            </div>
+            <div class="flex justify-end space-x-2 mt-4">
+                <button onclick="ScheduleManager.saveTimeChanges()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                    Save
+                </button>
+                <button onclick="ScheduleManager.closeEditPopup()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
