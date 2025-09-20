@@ -1,535 +1,583 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { User, Briefcase, FileUp, Download, Building2, ClipboardCopy, CircleDollarSign, PlusCircle, Trash2, X, Search, Clock, Users, Sun, Moon } from 'lucide-react';
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Bay Services Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
 
-// --- ДАННЫЕ ПРИЛОЖЕНИЯ ---
-// В реальном Next.js приложении эти данные загружались бы с API, но здесь они встроены напрямую.
+    <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-const dispatchingScheduleData = [
-    { "Days": "Monday", "Vuqar/David": "8:00 AM-11:00 AM", "Kanan/Kenny": "11:00 AM-1:00 PM", "Nahida/Emma": "1:00 PM-3:00 PM", "Narmina/Nora": "3:00 PM-8:00 PM", "Orxan/Eric": "8:00 PM-10:00 PM" },
-    { "Days": "Tuesday", "Vuqar/David": "8:00 AM-11:00 AM", "Kanan/Kenny": "11:00 AM-1:00 PM", "Nahida/Emma": "1:00 PM-3:00 PM", "Narmina/Nora": "3:00 PM-8:00 PM", "Orxan/Eric": "8:00 PM-10:00 PM" },
-    { "Days": "Wednesday", "Vuqar/David": "8:00 AM-11:00 AM", "Kanan/Kenny": "11:00 AM-1:00 PM", "Nahida/Emma": "1:00 PM-3:00 PM", "Narmina/Nora": "3:00 PM-8:00 PM", "Orxan/Eric": "8:00 PM-10:00 PM" },
-    { "Days": "Thursday", "Vuqar/David": "8:00 AM-11:00 AM", "Kanan/Kenny": "11:00 AM-1:00 PM", "Nahida/Emma": "1:00 PM-3:00 PM", "Narmina/Nora": "3:00 PM-8:00 PM", "Orxan/Eric": "8:00 PM-10:00 PM" },
-    { "Days": "Friday", "Vuqar/David": "8:00 AM-11:00 AM", "Kanan/Kenny": "11:Й00 AM-1:00 PM", "Nahida/Emma": "1:00 PM-3:00 PM", "Narmina/Nora": "3:00 PM-8:00 PM", "Orxan/Eric": "8:00 PM-10:00 PM" },
-    { "Days": "Saturday", "Vuqar/David": "OFF", "Kanan/Kenny": "8:00 AM-7:00 PM", "Nahida/Emma": "OFF", "Narmina/Nora": "OFF", "Orxan/Eric": "OFF" },
-    { "Days": "Sunday", "Vuqar/David": "OFF", "Kanan/Kenny": "OFF", "Nahida/Emma": "8:00 AM-7:00 PM", "Narmina/Nora": "OFF", "Orxan/Eric": "OFF" }
-];
-
-const managementScheduleData = [
-    { "Days": "Monday", "Vuqar/David": "8:00 AM-12:00 PM", "Nahida/Emma": "12:00 PM-4:00 PM" },
-    { "Days": "Tuesday", "Vuqar/David": "8:00 AM-12:00 PM", "Nahida/Emma": "12:00 PM-4:00 PM" },
-    { "Days": "Wednesday", "Vuqar/David": "8:00 AM-12:00 PM", "Nahida/Emma": "12:00 PM-4:00 PM" },
-    { "Days": "Thursday", "Vuqar/David": "8:00 AM-12:00 PM", "Nahida/Emma": "12:00 PM-4:00 PM" },
-    { "Days": "Friday", "Vuqar/David": "8:00 AM-12:00 PM", "Nahida/Emma": "12:00 PM-4:00 PM" },
-    { "Days": "Saturday", "Vuqar/David": "OFF", "Nahida/Emma": "OFF" },
-    { "Days": "Sunday", "Vuqar/David": "OFF", "Nahida/Emma": "OFF" }
-];
-
-const autoAnswersData = [
-    { "Service type": "Air Duct cleaning", "Message": "Hi [Client Name],\n\nThis is {operatorName} with Bay Services and thank you for considering Air Duct cleaning services with us.\n\n1️⃣— The price of the deep cleaning is $340 up to 10 registers/ducts. Price includes cleaning & sanitizing intake and return duct & vents.\n\n2️⃣ — After 10 vents the price for each vent is $25\n\n3️⃣ — Please kindly note that you will always get a free dryer vent, kitchen exhaust/range and chimney/fireplace inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment." },
-    { "Service type": "Chimney /fireplace cleaning", "Message": "Hi [Client Name],\n\nThis is {operatorName} with Bay Services and thank you for considering Chimney/fireplace cleaning services with us.\n\n1️⃣ — The price of the chimney / fireplace inspection and cleaning will be $169.\n\n2️⃣ — Please kindly note that you will always get a free dryer vent, kitchen exhaust/range and HVAC vents/registers inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment." },
-    { "Service type": "Dryer vent cleaning", "Message": "Hi [Client Name],\n\nThis is {operatorName} with Bay Services and thank you for considering dryer vent & duct cleaning services with us.\n\n1️⃣ -- The price of a dryer vent cleaning will be $139\n\n2️⃣ -- Please kindly note that you will always get a free chimney / fireplace, kitchen exhaust/range and HVAC vents/registers inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment." },
-    { "Service type": "Outstanding Payment Request", "Message": "Hi [Client Name],\n\nThis is {operatorName} with Bay Services. Hope you're doing well.\n\nI’m reaching out about the outstanding payment for invoice #[Invoice #]. We’d appreciate it if you could arrange payment at your earliest convenience.\n\nThank you!\n\n{operatorName} from Bay Services" },
-    { "Service type": "AFTER SERVICE FOLLOW-UP MESSAGE", "Message": "Hi [Client Name],\n\nThis is {operatorName} with Bay Services. I’m reaching out for a after-service follow-up regarding today’s appointment.\n\nCould you please confirm everything went smoothly and share if you have any feedback?\n\nThank you!" }
-];
-
-const servicesAndPricesData = [
-    { "Service": "Air Duct", "Type": "Cleaning", "Price": "340", "Note": "Up to 10 vents, after each additional $25" },
-    { "Service": "Dryer vent (side-by-side)", "Type": "Cleaning", "Price": "139", "Note": "" },
-    { "Service": "Dryer vent (stacked)", "Type": "Cleaning", "Price": "199", "Note": "" },
-    { "Service": "Chimney /fireplace", "Type": "Cleaning", "Price": "169", "Note": "" },
-    { "Service": "Kitchen exhaust/range", "Type": "Cleaning", "Price": "$199-$499", "Note": "Depend on the level of the grease" },
-    { "Service": "Bath fan", "Type": "Cleaning", "Price": "49", "Note": "Per each; if 2 services and more price is $39" },
-];
-
-const serviceInfoData = [
-    {"SERVICE":"Dryer Vent Cleaning","WHEN IT NEEDS":"• Clothes take longer to dry.\n• Dryer feels very hot or shuts off due to overheating.\n• Burning smell or visible lint around the dryer.","SERVICE FREQUENCY":"• Once a year\n• Every 6 months if used frequently.","SERVICE METHODS":"• Rotary brush","SERVICE STAGES":"• Inspection\n• Interior Cleaning\n• Airflow Measurement","SERVICE DURATION":"30 mins"},
-    {"SERVICE":"Air Ducts Cleaning","WHEN IT NEEDS":"• Visible dust blowing from supply vents.\n• Uneven airflow or weak airflow.\n• Allergies, asthma, or respiratory issues increase.","SERVICE FREQUENCY":"• Every 3-5 years","SERVICE METHODS":"• Negative Pressure (Industrial Vacuum)\n• Rotary brush","SERVICE STAGES":"• Covering vents\n• Creating negative pressure\n• Cleaning each vent\n• Sanitizing","SERVICE DURATION":"1-2 hours"},
-    {"SERVICE":"Chimney Sweep","WHEN IT NEEDS":"• Visible soot or creosote buildup.\n• Difficulty starting fires or poor draft.\n• Odors from the fireplace when not in use.","SERVICE FREQUENCY":"• Once a year, before the start of the heating season.","SERVICE METHODS":"• Manual brushing with various brush types.","SERVICE STAGES":"• Inspection of flue, damper, and firebox.\n• Laying down protective coverings.\n• Brushing the flue liner.\n• Cleaning the smoke shelf, chamber, and firebox.","SERVICE DURATION":"45-90 mins"},
-];
-
-const serviceRecommendationsData = [
-    {"Service":"Dryer Vent Cleaning","Recommendation":"Neglecting the cleaning of your dryer vent can lead to serious consequences. Lint buildup can overheat and ignite, increasing the risk of a fire hazard. A clogged vent also affects your daily life, leading to increased energy usage and longer drying times."},
-    {"Service":"Air Ducts Cleaning","Recommendation":"Dirty air ducts can spread dust, allergens, and other contaminants throughout your home, leading to poor indoor air quality. This can worsen allergy and asthma symptoms and cause respiratory irritation."},
-    {"Service":"Chimney Sweep","Recommendation":"The buildup of creosote can ignite and cause a chimney fire, which can spread to the rest of the house. Also, a dirty chimney can release carbon monoxide into your home, which is a poisonous gas."}
-];
-
-const propertyManagementData = [
-    {"Company":"Agile Appliance","Invoicing Email":"","Phone":"(650) 625-7475","Representative":"","Position":"","Email":"","Phone 2":"","Discount":"","Note":""},
-    {"Company":"AmeFix Home Solutions","Invoicing Email":"vendor.amefix@gmail.com","Phone":"(978) 715-0348","Representative":"Sarah Scarlet","Position":"","Email":"","Phone 2":"","Discount":"","Note":""},
-    {"Company":"W2 Property Management","Invoicing Email":"noe@w2propertymgt.com","Phone":"415-316-4369","Representative":"Noe de la Cruz","Position":"","Email":"","Phone 2":"","Discount":"","Note":""},
-];
-
-const outstandingPaymentsData = [
-    {"id": 1, "Customer name":"W2 PROPERTIES #205","Amount due":"749.76", "status":"OUTSTANDING", "Invoice date": "2025-09-12"},
-    {"id": 2, "Customer name":"Joann Dethman.","Amount due":"339", "status":"OUTSTANDING", "Invoice date": "2025-09-15"},
-    {"id": 3, "Customer name":"Agile Appliance","Amount due":"379", "status":"OUTSTANDING", "Invoice date": "2025-09-10"},
-    {"id": 4, "Customer name":"HONEY HOMES", "Amount due":"339", "status":"PAID", "Invoice date": "2025-09-15"}
-];
-
-// --- ХУКИ И УТИЛИТЫ ---
-const useCaliforniaTime = () => {
-    const [time, setTime] = useState(new Date());
-
-    useEffect(() => {
-        const timerId = setInterval(() => setTime(new Date()), 1000);
-        return () => clearInterval(timerId);
-    }, []);
-
-    const timeZone = 'America/Los_Angeles';
-    const dateFormatter = new Intl.DateTimeFormat('ru-RU', {
-        timeZone,
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-    });
-    const timeFormatter = new Intl.DateTimeFormat('en-US', {
-        timeZone,
-        hour: 'numeric',
-        minute: 'numeric',
-        second: 'numeric',
-        hour12: true
-    });
-
-    return {
-        dateString: dateFormatter.format(time),
-        timeString: timeFormatter.format(time),
-        currentDate: time
-    };
-};
-
-// --- КОМПОНЕНТЫ ИНТЕРФЕЙСА ---
-
-const RoleSelectionScreen = ({ onSelectRole }) => {
-    return (
-        <div className="flex items-center justify-center h-screen bg-gray-100">
-            <div className="text-center p-10 bg-white rounded-2xl shadow-xl">
-                <img src="https://thebayservices.com/wp-content/uploads/2022/07/bay-services-logo-300x100.png" alt="Logo" className="mx-auto mb-8" />
-                <h1 className="text-3xl font-bold text-gray-800 mb-4">Добро пожаловать</h1>
-                <p className="text-gray-600 mb-8">Пожалуйста, выберите свою роль для продолжения</p>
-                <div className="flex justify-center gap-4">
-                    <button onClick={() => onSelectRole('operator')} className="flex items-center gap-2 bg-blue-500 text-white font-semibold py-3 px-6 rounded-lg hover:bg-blue-600 transition-transform transform hover:scale-105">
-                        <User size={20} /> Оператор
-                    </button>
-                    <button onClick={() => onSelectRole('management')} className="flex items-center gap-2 bg-gray-700 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-800 transition-transform transform hover:scale-105">
-                        <Briefcase size={20} /> Менеджер
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const Dashboard = ({ schedules, setSchedules }) => {
-    const { dateString, timeString, currentDate } = useCaliforniaTime();
-    
-    const parseTime = (timeStr, date) => {
-        if (!timeStr || timeStr.toLowerCase() === 'off') return null;
-        const [time, period] = timeStr.split(' ');
-        let [hours, minutes] = time.split(':');
-        hours = parseInt(hours);
-        minutes = parseInt(minutes) || 0;
-        
-        if (period && period.toLowerCase() === 'pm' && hours < 12) {
-            hours += 12;
-        }
-        if (period && period.toLowerCase() === 'am' && hours === 12) {
-            hours = 0;
-        }
-        
-        const newDate = new Date(date);
-        newDate.setHours(hours, minutes, 0, 0);
-        return newDate;
-    };
-
-    const currentlyWorking = useMemo(() => {
-        const dayOfWeek = currentDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', weekday: 'long' });
-        const working = { operators: [], managers: [] };
-
-        const checkSchedule = (schedule, role) => {
-            const todaySchedule = schedule.find(s => s.Days === dayOfWeek);
-            if (todaySchedule) {
-                Object.entries(todaySchedule).forEach(([name, timeRange]) => {
-                    if (name !== 'Days' && timeRange.toLowerCase() !== 'off') {
-                        const [startStr, endStr] = timeRange.replace(/am|pm/gi, '').split('-');
-                        const startTime = parseTime(startStr + timeRange.match(/am|pm/i)?.[0], currentDate);
-                        const endTime = parseTime(endStr + timeRange.match(/am|pm/i)?.[0], currentDate);
-                         if (startTime && endTime && currentDate >= startTime && currentDate <= endTime) {
-                            if (role === 'operator') working.operators.push(name);
-                            else working.managers.push(name);
-                        }
-                    }
-                });
-            }
+    <script type="text/babel">
+        // --- Иконки (замена библиотеки Lucide) ---
+        const Icon = ({ name, size = 16 }) => {
+            const icons = {
+                User: '👤', Briefcase: '💼', FileUp: '📤', Download: '📥', Building2: '🏢',
+                ClipboardCopy: '📋', CircleDollarSign: '💲', PlusCircle: '⊕', Trash2: '🗑️',
+                X: '✕', Search: '🔍', Clock: '🕒', Users: '👥', Sun: '☀️', Moon: '🌙',
+                Cloud: '☁️', CloudRain: '🌧️', CloudSnow: '❄️', Zap: '⚡', Wind: '💨',
+                Edit: '✏️', Save: '💾', Plus: '➕', Trash: '🗑️', ExternalLink: '↗️'
+            };
+            return <span style={{ fontSize: `${size}px` }}>{icons[name] || ''}</span>;
         };
 
-        checkSchedule(schedules.dispatching, 'operator');
-        checkSchedule(schedules.management, 'manager');
-        return working;
-    }, [currentDate, schedules]);
-    
-    const handleCellChange = (scheduleType, rowIndex, colName, value) => {
-      const newSchedules = { ...schedules };
-      newSchedules[scheduleType][rowIndex][colName] = value;
-      setSchedules(newSchedules);
-    };
+        // --- ДАННЫЕ ПРИЛОЖЕНИЯ ---
+        const dispatchingScheduleData = [
+            { "Days": "Monday", "Vuqar/David": "8:00 AM-11:00 AM", "Kanan/Kenny": "11:00 AM-1:00 PM", "Nahida/Emma": "1:00 PM-3:00 PM", "Narmina/Nora": "3:00 PM-8:00 PM", "Orxan/Eric": "8:00 PM-10:00 PM" },
+            { "Days": "Tuesday", "Vuqar/David": "8:00 AM-11:00 AM", "Kanan/Kenny": "11:00 AM-1:00 PM", "Nahida/Emma": "1:00 PM-3:00 PM", "Narmina/Nora": "3:00 PM-8:00 PM", "Orxan/Eric": "8:00 PM-10:00 PM" },
+            { "Days": "Wednesday", "Vuqar/David": "8:00 AM-11:00 AM", "Kanan/Kenny": "11:00 AM-1:00 PM", "Nahida/Emma": "1:00 PM-3:00 PM", "Narmina/Nora": "3:00 PM-8:00 PM", "Orxan/Eric": "8:00 PM-10:00 PM" },
+            { "Days": "Thursday", "Vuqar/David": "8:00 AM-11:00 AM", "Kanan/Kenny": "11:00 AM-1:00 PM", "Nahida/Emma": "1:00 PM-3:00 PM", "Narmina/Nora": "3:00 PM-8:00 PM", "Orxan/Eric": "8:00 PM-10:00 PM" },
+            { "Days": "Friday", "Vuqar/David": "8:00 AM-11:00 AM", "Kanan/Kenny": "11:00 AM-1:00 PM", "Nahida/Emma": "1:00 PM-3:00 PM", "Narmina/Nora": "3:00 PM-8:00 PM", "Orxan/Eric": "8:00 PM-10:00 PM" },
+            { "Days": "Saturday", "Vuqar/David": "OFF", "Kanan/Kenny": "8:00 AM-7:00 PM", "Nahida/Emma": "OFF", "Narmina/Nora": "OFF", "Orxan/Eric": "OFF" },
+            { "Days": "Sunday", "Vuqar/David": "OFF", "Kanan/Kenny": "OFF", "Nahida/Emma": "8:00 AM-7:00 PM", "Narmina/Nora": "OFF", "Orxan/Eric": "OFF" }
+        ];
 
-    const ScheduleTable = ({ title, data, type }) => (
-      <div className="mt-8">
-        <h3 className="text-xl font-semibold text-gray-700 mb-3">{title}</h3>
-        <div className="overflow-x-auto rounded-lg border">
-          <table className="w-full table-auto text-sm">
-            <thead>
-              <tr className="bg-gray-200">
-                {Object.keys(data[0]).map(key => <th key={key} className="p-3 font-semibold tracking-wide text-left">{key}</th>)}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {data.map((row, rowIndex) => (
-                <tr key={rowIndex}>
-                  {Object.entries(row).map(([key, value]) => (
-                    <td key={key} className="p-3 text-gray-700" contentEditable={key !== 'Days'} 
-                        onBlur={(e) => handleCellChange(type, rowIndex, key, e.currentTarget.textContent)}
-                        suppressContentEditableWarning={true}>
-                      {value}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
+        const managementScheduleData = [
+            { "Days": "Monday", "Vuqar/David": "8:00 AM-12:00 PM", "Nahida/Emma": "12:00 PM-4:00 PM" },
+            { "Days": "Tuesday", "Vuqar/David": "8:00 AM-12:00 PM", "Nahida/Emma": "12:00 PM-4:00 PM" },
+            { "Days": "Wednesday", "Vuqar/David": "8:00 AM-12:00 PM", "Nahida/Emma": "12:00 PM-4:00 PM" },
+            { "Days": "Thursday", "Vuqar/David": "8:00 AM-12:00 PM", "Nahida/Emma": "12:00 PM-4:00 PM" },
+            { "Days": "Friday", "Vuqar/David": "8:00 AM-12:00 PM", "Nahida/Emma": "12:00 PM-4:00 PM" },
+            { "Days": "Saturday", "Vuqar/David": "OFF", "Nahida/Emma": "OFF" },
+            { "Days": "Sunday", "Vuqar/David": "OFF", "Nahida/Emma": "OFF" }
+        ];
 
-    return (
-        <div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                <div className="text-center bg-gray-100 p-6 rounded-lg">
-                    <p className="text-3xl font-semibold text-gray-800">{timeString}</p>
-                    <p className="text-md text-gray-500">{dateString}</p>
-                </div>
-                <div className="bg-blue-50 p-6 rounded-lg">
-                    <h3 className="font-semibold text-blue-800 mb-2">Сейчас на смене:</h3>
-                    <p><strong>Операторы:</strong> {currentlyWorking.operators.join(', ') || 'Нет на смене'}</p>
-                    <p><strong>Менеджеры:</strong> {currentlyWorking.managers.join(', ') || 'Нет на смене'}</p>
-                </div>
-            </div>
-            <ScheduleTable title="График диспетчеров" data={schedules.dispatching} type="dispatching" />
-            <ScheduleTable title="График менеджеров" data={schedules.management} type="management" />
-        </div>
-    );
-};
+        const autoAnswersData = [
+            { "Service type": "Air Duct cleaning", "Message": "Hi [Client Name],\n\nThis is {operatorName} with Bay Services and thank you for considering Air Duct cleaning services with us.\n\n1️⃣— The price of the deep cleaning is $340 up to 10 registers/ducts. Price includes cleaning & sanitizing intake and return duct & vents.\n\n2️⃣ — After 10 vents the price for each vent is $25\n\n3️⃣ — Please kindly note that you will always get a free dryer vent, kitchen exhaust/range and chimney/fireplace inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment." },
+            { "Service type": "Chimney /fireplace cleaning", "Message": "Hi [Client Name],\n\nThis is {operatorName} with Bay Services and thank you for considering Chimney/fireplace cleaning services with us.\n\n1️⃣ — The price of the chimney / fireplace inspection and cleaning will be $169.\n\n2️⃣ — Please kindly note that you will always get a free dryer vent, kitchen exhaust/range and HVAC vents/registers inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment." },
+            { "Service type": "Dryer vent cleaning", "Message": "Hi [Client Name],\n\nThis is {operatorName} with Bay Services and thank you for considering dryer vent & duct cleaning services with us.\n\n1️⃣ -- The price of a dryer vent cleaning will be $139\n\n2️⃣ -- Please kindly note that you will always get a free chimney / fireplace, kitchen exhaust/range and HVAC vents/registers inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment." },
+            { "Service type": "Outstanding Payment Request", "Message": "Hi [Client Name],\n\nThis is {operatorName} with Bay Services. Hope you're doing well.\n\nI’m reaching out about the outstanding payment for invoice #[Invoice #]. We’d appreciate it if you could arrange payment at your earliest convenience.\n\nThank you!\n\n{operatorName} from Bay Services" },
+            { "Service type": "AFTER SERVICE FOLLOW-UP MESSAGE", "Message": "Hi [Client Name],\n\nThis is {operatorName} with Bay Services. I’m reaching out for a after-service follow-up regarding today’s appointment.\n\nCould you please confirm everything went smoothly and share if you have any feedback?\n\nThank you!" }
+        ];
 
-const AutoAnswers = () => {
-    const operators = ["Thomas", "David", "Emma", "Eric", "Nora", "Trinity", "Kenny"];
-    const [selectedOperator, setSelectedOperator] = useState("Thomas");
-    
-    const copyToClipboard = (text) => {
-        navigator.clipboard.writeText(text).then(() => alert('Текст скопирован!'));
-    };
+        const servicesAndPricesData = [
+            { "Service": "Air Duct", "Type": "Cleaning", "Price": "340", "Note": "Up to 10 vents, after each additional $25" },
+            { "Service": "Dryer vent (side-by-side)", "Type": "Cleaning", "Price": "139", "Note": "" },
+            { "Service": "Dryer vent (stacked)", "Type": "Cleaning", "Price": "199", "Note": "" },
+            { "Service": "Chimney /fireplace", "Type": "Cleaning", "Price": "169", "Note": "" },
+            { "Service": "Kitchen exhaust/range", "Type": "Cleaning", "Price": "$199-$499", "Note": "Depend on the level of the grease" },
+            { "Service": "Bath fan", "Type": "Cleaning", "Price": "49", "Note": "Per each; if 2 services and more price is $39" },
+        ];
 
-    return (
-        <div>
-            <div className="mb-6">
-                <label htmlFor="operator-select" className="block text-sm font-medium text-gray-700 mb-2">Выберите оператора для подстановки в шаблон:</label>
-                <select id="operator-select" value={selectedOperator} onChange={e => setSelectedOperator(e.target.value)}
-                    className="w-full max-w-xs p-2 border border-gray-300 rounded-md shadow-sm">
-                    {operators.map(op => <option key={op} value={op}>{op}</option>)}
-                </select>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {autoAnswersData.map((answer, index) => {
-                    const message = answer.Message.replace(/{operatorName}/g, selectedOperator);
-                    return (
-                        <div key={index} className="border rounded-lg p-4 bg-white shadow-sm flex flex-col">
-                            <h4 className="font-semibold text-gray-800 mb-2">{answer['Service type']}</h4>
-                            <textarea readOnly value={message} className="text-sm text-gray-600 bg-gray-50 p-3 rounded-md flex-grow resize-none h-64"></textarea>
-                            <button onClick={() => copyToClipboard(message)} className="flex items-center justify-center gap-2 copy-button mt-3 w-full bg-blue-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-blue-600">
-                                <ClipboardCopy size={16} /> Копировать
+        const serviceInfoData = [
+            {"SERVICE":"Dryer Vent Cleaning","WHEN IT NEEDS":"• Clothes take longer to dry.\n• Dryer feels very hot or shuts off due to overheating.\n• Burning smell or visible lint around the dryer.","SERVICE FREQUENCY":"• Once a year\n• Every 6 months if used frequently.","SERVICE METHODS":"• Rotary brush","SERVICE STAGES":"• Inspection\n• Interior Cleaning\n• Airflow Measurement","SERVICE DURATION":"30 mins"},
+            {"SERVICE":"Air Ducts Cleaning","WHEN IT NEEDS":"• Visible dust blowing from supply vents.\n• Uneven airflow or weak airflow.\n• Allergies, asthma, or respiratory issues increase.","SERVICE FREQUENCY":"• Every 3-5 years","SERVICE METHODS":"• Negative Pressure (Industrial Vacuum)\n• Rotary brush","SERVICE STAGES":"• Covering vents\n• Creating negative pressure\n• Cleaning each vent\n• Sanitizing","SERVICE DURATION":"1-2 hours"},
+            {"SERVICE":"Chimney Sweep","WHEN IT NEEDS":"• Visible soot or creosote buildup.\n• Difficulty starting fires or poor draft.\n• Odors from the fireplace when not in use.","SERVICE FREQUENCY":"• Once a year, before the start of the heating season.","SERVICE METHODS":"• Manual brushing with various brush types.","SERVICE STAGES":"• Inspection of flue, damper, and firebox.\n• Laying down protective coverings.\n• Brushing the flue liner.\n• Cleaning the smoke shelf, chamber, and firebox.","SERVICE DURATION":"45-90 mins"},
+        ];
+
+        const serviceRecommendationsData = [
+            {"Service":"Dryer Vent Cleaning","Recommendation":"Neglecting the cleaning of your dryer vent can lead to serious consequences. Lint buildup can overheat and ignite, increasing the risk of a fire hazard. A clogged vent also affects your daily life, leading to increased energy usage and longer drying times."},
+            {"Service":"Air Ducts Cleaning","Recommendation":"Dirty air ducts can spread dust, allergens, and other contaminants throughout your home, leading to poor indoor air quality. This can worsen allergy and asthma symptoms and cause respiratory irritation."},
+            {"Service":"Chimney Sweep","Recommendation":"The buildup of creosote can ignite and cause a chimney fire, which can spread to the rest of the house. Also, a dirty chimney can release carbon monoxide into your home, which is a poisonous gas."}
+        ];
+
+        const propertyManagementData = [
+            {"Company":"Agile Appliance","Invoicing Email":"","Phone":"(650) 625-7475","Representative":"","Position":"","Email":"","Phone 2":"","Discount":"","Note":""},
+            {"Company":"AmeFix Home Solutions","Invoicing Email":"vendor.amefix@gmail.com","Phone":"(978) 715-0348","Representative":"Sarah Scarlet","Position":"","Email":"","Phone 2":"","Discount":"","Note":""},
+            {"Company":"W2 Property Management","Invoicing Email":"noe@w2propertymgt.com","Phone":"415-316-4369","Representative":"Noe de la Cruz","Position":"","Email":"","Phone 2":"","Discount":"","Note":""},
+        ];
+
+        const outstandingPaymentsData = [
+            {"id": 1, "Customer name":"W2 PROPERTIES #205","Amount due":"749.76", "status":"OUTSTANDING", "Invoice date": "2025-09-12"},
+            {"id": 2, "Customer name":"Joann Dethman.","Amount due":"339", "status":"OUTSTANDING", "Invoice date": "2025-09-15"},
+            {"id": 3, "Customer name":"Agile Appliance","Amount due":"379", "status":"OUTSTANDING", "Invoice date": "2025-09-10"},
+            {"id": 4, "Customer name":"HONEY HOMES", "Amount due":"339", "status":"PAID", "Invoice date": "2025-09-15"}
+        ];
+
+        // --- ХУКИ И УТИЛИТЫ ---
+        const useCaliforniaTime = () => {
+            const { useState, useEffect } = React;
+            const [time, setTime] = useState(new Date());
+
+            useEffect(() => {
+                const timerId = setInterval(() => setTime(new Date()), 1000);
+                return () => clearInterval(timerId);
+            }, []);
+
+            const timeZone = 'America/Los_Angeles';
+            const dateFormatter = new Intl.DateTimeFormat('ru-RU', {
+                timeZone,
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+            const timeFormatter = new Intl.DateTimeFormat('en-US', {
+                timeZone,
+                hour: 'numeric',
+                minute: 'numeric',
+                second: 'numeric',
+                hour12: true
+            });
+
+            return {
+                dateString: dateFormatter.format(time),
+                timeString: timeFormatter.format(time),
+                currentDate: time
+            };
+        };
+
+        // --- КОМПОНЕНТЫ ИНТЕРФЕЙСА ---
+
+        const RoleSelectionScreen = ({ onSelectRole }) => {
+            return (
+                <div className="flex items-center justify-center h-screen bg-gray-100">
+                    <div className="text-center p-10 bg-white rounded-2xl shadow-xl">
+                        <img src="https://thebayservices.com/wp-content/uploads/2022/07/bay-services-logo-300x100.png" alt="Logo" className="mx-auto mb-8" />
+                        <h1 className="text-3xl font-bold text-gray-800 mb-4">Добро пожаловать</h1>
+                        <p className="text-gray-600 mb-8">Пожалуйста, выберите свою роль для продолжения</p>
+                        <div className="flex justify-center gap-4">
+                            <button onClick={() => onSelectRole('operator')} className="flex items-center gap-2 bg-blue-500 text-white font-semibold py-3 px-6 rounded-lg hover:bg-blue-600 transition-transform transform hover:scale-105">
+                                <Icon name="User" size={20} /> Оператор
+                            </button>
+                            <button onClick={() => onSelectRole('management')} className="flex items-center gap-2 bg-gray-700 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-800 transition-transform transform hover:scale-105">
+                                <Icon name="Briefcase" size={20} /> Менеджер
                             </button>
                         </div>
-                    );
-                })}
-            </div>
-        </div>
-    );
-};
+                    </div>
+                </div>
+            );
+        };
 
-const ServiceInfo = () => {
-    const [selectedService, setSelectedService] = useState(null);
-
-    const combinedServiceData = useMemo(() => {
-        return serviceInfoData.map(info => {
-            const priceInfo = servicesAndPricesData.find(p => p.Service.toLowerCase().includes(info.SERVICE.split(' ')[0].toLowerCase()));
-            const recommendation = serviceRecommendationsData.find(r => r.Service.toLowerCase().includes(info.SERVICE.split(' ')[0].toLowerCase()));
-            return {
-                ...info,
-                Price: priceInfo ? priceInfo.Price : 'N/A',
-                Note: priceInfo ? priceInfo.Note : '',
-                Recommendation: recommendation ? recommendation.Recommendation : 'Нет рекомендаций'
+        const Dashboard = ({ schedules, setSchedules }) => {
+            const { dateString, timeString, currentDate } = useCaliforniaTime();
+            const { useMemo } = React;
+            
+            const parseTime = (timeStr, date) => {
+                if (!timeStr || String(timeStr).toLowerCase() === 'off') return null;
+                const timePart = String(timeStr).split(' ')[0];
+                const period = (String(timeStr).toLowerCase().match(/(am|pm)/) || [])[0];
+                let [hours, minutes] = timePart.split(':');
+                hours = parseInt(hours);
+                minutes = parseInt(minutes) || 0;
+                
+                if (period === 'pm' && hours < 12) {
+                    hours += 12;
+                }
+                if (period === 'am' && hours === 12) { // Midnight case
+                    hours = 0;
+                }
+                
+                const newDate = new Date(date);
+                newDate.setHours(hours, minutes, 0, 0);
+                return newDate;
             };
-        });
-    }, []);
 
-    const ServiceModal = ({ service, onClose }) => (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl max-h-full overflow-y-auto">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-2xl font-bold text-gray-800">{service.SERVICE}</h3>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-800"><X size={24} /></button>
-                </div>
-                <div className="space-y-4 text-gray-700">
-                    <div className="p-3 bg-blue-50 rounded-md"><strong>Цена:</strong> {service.Price} {service.Note && `(${service.Note})`}</div>
-                    <div><strong>Когда необходимо:</strong><p className="whitespace-pre-wrap pl-2">{service["WHEN IT NEEDS"]}</p></div>
-                    <div><strong>Частота:</strong><p className="whitespace-pre-wrap pl-2">{service["SERVICE FREQUENCY"]}</p></div>
-                    <div><strong>Методы:</strong><p className="whitespace-pre-wrap pl-2">{service["SERVICE METHODS"]}</p></div>
-                    <div><strong>Этапы:</strong><p className="whitespace-pre-wrap pl-2">{service["SERVICE STAGES"]}</p></div>
-                    <div><strong>Продолжительность:</strong><p className="pl-2">{service["SERVICE DURATION"]}</p></div>
-                    <div className="pt-4 border-t"><strong>Рекомендации:</strong><p className="whitespace-pre-wrap pl-2">{service.Recommendation}</p></div>
-                </div>
-            </div>
-        </div>
-    );
+            const currentlyWorking = useMemo(() => {
+                const dayOfWeek = currentDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', weekday: 'long' });
+                const working = { operators: [], managers: [] };
 
-    return (
-        <div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {combinedServiceData.map((service, index) => (
-                    <button key={index} onClick={() => setSelectedService(service)} 
-                            className="text-center p-4 border rounded-lg bg-white shadow-sm hover:bg-blue-50 hover:shadow-md transition-all h-24 flex items-center justify-center">
-                        <h4 className="font-semibold text-gray-800">{service.SERVICE}</h4>
-                    </button>
-                ))}
-            </div>
-            {selectedService && <ServiceModal service={selectedService} onClose={() => setSelectedService(null)} />}
-        </div>
-    );
-};
+                const checkSchedule = (schedule, role) => {
+                    const todaySchedule = schedule.find(s => s.Days === dayOfWeek);
+                    if (todaySchedule) {
+                        Object.entries(todaySchedule).forEach(([name, timeRange]) => {
+                            if (name !== 'Days' && String(timeRange).toLowerCase() !== 'off') {
+                                const [startStr, endStr] = String(timeRange).split('-');
+                                const startTime = parseTime(startStr, currentDate);
+                                const endTime = parseTime(endStr, currentDate);
 
-const PropertyManagement = () => {
-    const [list, setList] = useState(propertyManagementData);
-    const [showModal, setShowModal] = useState(false);
-    
-    const addCompany = (company) => {
-        setList([...list, company]);
-        setShowModal(false);
-    };
-    
-    // Simple modal for adding, can be expanded
-    const AddModal = () => (
-         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg w-full max-w-md">
-                <h3 className="text-xl font-bold mb-4">Добавить новую компанию</h3>
-                {/* Form fields would go here */}
-                <p>Форма для добавления новой компании.</p>
-                <button onClick={() => addCompany({Company: 'New Co', Phone: '123-456'})} className="bg-blue-500 text-white px-4 py-2 rounded-md mt-4">Добавить</button>
-                <button onClick={() => setShowModal(false)} className="ml-2 text-gray-600">Отмена</button>
-            </div>
-        </div>
-    );
-
-    return (
-        <div>
-            <button onClick={() => setShowModal(true)} className="bg-green-500 text-white px-4 py-2 rounded-md mb-4 flex items-center gap-2">
-                <PlusCircle size={18} /> Добавить
-            </button>
-            <div className="overflow-x-auto rounded-lg border">
-                <table className="w-full table-auto text-sm">
-                    <thead>
-                        <tr className="bg-gray-200">
-                           {Object.keys(list[0]).map(h => <th key={h} className="p-3 font-semibold text-left">{h}</th>)}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {list.map((item, i) => <tr key={i}>{Object.values(item).map((val, j) => <td key={j} className="p-3">{val}</td>)}</tr>)}
-                    </tbody>
-                </table>
-            </div>
-            {showModal && <AddModal />}
-        </div>
-    );
-};
-
-const OutstandingPayments = () => {
-    const [payments, setPayments] = useState(outstandingPaymentsData);
-    const [showArchived, setShowArchived] = useState(false);
-
-    const toggleStatus = (id) => {
-        setPayments(payments.map(p => p.id === id ? {...p, status: p.status === 'PAID' ? 'OUTSTANDING' : 'PAID'} : p));
-    };
-
-    const totalDue = useMemo(() => {
-        return payments
-            .filter(p => p.status === 'OUTSTANDING')
-            .reduce((sum, p) => sum + parseFloat(p['Amount due']), 0)
-            .toFixed(2);
-    }, [payments]);
-    
-    const filteredPayments = showArchived ? payments : payments.filter(p => p.status !== 'PAID');
-
-    return (
-        <div>
-            <div className="flex justify-between items-center mb-4">
-                 <button onClick={() => setShowArchived(!showArchived)} className="bg-gray-200 px-4 py-2 rounded-md">
-                    {showArchived ? 'Скрыть оплаченные' : 'Показать все (включая оплаченные)'}
-                </button>
-                <div className="text-xl font-bold text-red-600">К оплате: ${totalDue}</div>
-            </div>
-            <div className="overflow-x-auto rounded-lg border">
-                <table className="w-full table-auto text-sm">
-                    <thead><tr className="bg-gray-200">
-                        <th className="p-3">Customer</th><th className="p-3">Amount</th><th className="p-3">Date</th><th className="p-3">Status</th>
-                    </tr></thead>
-                    <tbody>
-                        {filteredPayments.map(p => (
-                            <tr key={p.id}>
-                                <td className="p-3">{p['Customer name']}</td>
-                                <td className="p-3">${p['Amount due']}</td>
-                                <td className="p-3">{p['Invoice date']}</td>
-                                <td className="p-3">
-                                    <button onClick={() => toggleStatus(p.id)} 
-                                        className={`px-3 py-1 text-xs font-semibold rounded-full ${p.status === 'PAID' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                        {p.status}
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    );
-};
-
-const AdminFiles = () => {
-    const [files, setFiles] = useState([]);
-
-    const handleFileUpload = (event) => {
-        const uploadedFile = event.target.files[0];
-        if (uploadedFile) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const newFile = {
-                    name: uploadedFile.name,
-                    url: e.target.result,
-                    type: uploadedFile.type,
+                                 if (startTime && endTime && currentDate >= startTime && currentDate <= endTime) {
+                                    if (role === 'operator') working.operators.push(name);
+                                    else working.managers.push(name);
+                                }
+                            }
+                        });
+                    }
                 };
-                setFiles([...files, newFile]);
-            };
-            reader.readAsDataURL(uploadedFile);
-        }
-    };
-    
-    const removeFile = (fileName) => {
-        setFiles(files.filter(f => f.name !== fileName));
-    };
 
-    return (
-        <div>
-             <input type="file" onChange={handleFileUpload} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>
-             <div className="mt-6 space-y-3">
-                {files.length > 0 ? files.map((file, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 bg-gray-100 rounded-lg">
-                        <span>{file.name}</span>
-                        <div>
-                            <a href={file.url} download={file.name} className="inline-flex items-center gap-2 text-blue-600 hover:underline mr-4"><Download size={16}/> Скачать</a>
-                            <button onClick={() => removeFile(file.name)} className="text-red-500 hover:text-red-700"><Trash2 size={16}/></button>
+                checkSchedule(schedules.dispatching, 'operator');
+                checkSchedule(schedules.management, 'manager');
+                return working;
+            }, [currentDate, schedules]);
+            
+            const handleCellChange = (scheduleType, rowIndex, colName, value) => {
+              const newSchedules = { ...schedules };
+              newSchedules[scheduleType][rowIndex][colName] = value;
+              setSchedules(newSchedules);
+            };
+
+            const ScheduleTable = ({ title, data, type }) => (
+              <div className="mt-8">
+                <h3 className="text-xl font-semibold text-gray-700 mb-3">{title}</h3>
+                <div className="overflow-x-auto rounded-lg border">
+                  <table className="w-full table-auto text-sm">
+                    <thead>
+                      <tr className="bg-gray-200">
+                        {Object.keys(data[0]).map(key => <th key={key} className="p-3 font-semibold tracking-wide text-left">{key}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {data.map((row, rowIndex) => (
+                        <tr key={rowIndex}>
+                          {Object.entries(row).map(([key, value]) => (
+                            <td key={key} className="p-3 text-gray-700" contentEditable={key !== 'Days'} 
+                                onBlur={(e) => handleCellChange(type, rowIndex, key, e.currentTarget.textContent)}
+                                suppressContentEditableWarning={true}>
+                              {value}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+
+            return (
+                <div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        <div className="text-center bg-gray-100 p-6 rounded-lg">
+                            <p className="text-3xl font-semibold text-gray-800">{timeString}</p>
+                            <p className="text-md text-gray-500">{dateString}</p>
+                        </div>
+                        <div className="bg-blue-50 p-6 rounded-lg">
+                            <h3 className="font-semibold text-blue-800 mb-2">Сейчас на смене:</h3>
+                            <p><strong>Операторы:</strong> {currentlyWorking.operators.join(', ') || 'Нет на смене'}</p>
+                            <p><strong>Менеджеры:</strong> {currentlyWorking.managers.join(', ') || 'Нет на смене'}</p>
                         </div>
                     </div>
-                )) : <p className="text-gray-500">Файлы не загружены.</p>}
-             </div>
-        </div>
-    );
-};
+                    <ScheduleTable title="График диспетчеров" data={schedules.dispatching} type="dispatching" />
+                    <ScheduleTable title="График менеджеров" data={schedules.management} type="management" />
+                </div>
+            );
+        };
 
-const Browser = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-[70vh]">
-        <iframe src="https://www.google.com/search?igu=1" className="w-full h-full border rounded-lg"></iframe>
-        <iframe src="https://www.google.com/search?igu=1" className="w-full h-full border rounded-lg"></iframe>
-    </div>
-);
+        const AutoAnswers = () => {
+            const { useState } = React;
+            const operators = ["Thomas", "David", "Emma", "Eric", "Nora", "Trinity", "Kenny"];
+            const [selectedOperator, setSelectedOperator] = useState("Thomas");
+            
+            const copyToClipboard = (text) => {
+                navigator.clipboard.writeText(text).then(() => alert('Текст скопирован!'));
+            };
 
-// --- ОСНОВНЫЕ КОМПОНЕНТЫ СТРАНИЦ ---
-
-const OperatorPage = ({ onSwitchRole }) => {
-    const [activeTab, setActiveTab] = useState('dashboard');
-    const [schedules, setSchedules] = useState({ dispatching: dispatchingScheduleData, management: managementScheduleData });
-    const tabs = {
-        dashboard: <Dashboard schedules={schedules} setSchedules={setSchedules} />,
-        answers: <AutoAnswers />,
-        service_info: <ServiceInfo />,
-        pm_list: <PropertyManagement />,
-        browser: <Browser />
-    };
-    return (
-        <AppLayout role="Оператор" onSwitchRole={onSwitchRole} activeTab={activeTab} setActiveTab={setActiveTab} tabs={
-            {'dashboard': 'Dashboard', 'answers': 'Automatic Answers', 'service_info': 'Service Info & Prices', 'pm_list': 'Property Management', 'browser': 'Browser'}
-        }>
-            {tabs[activeTab]}
-        </AppLayout>
-    );
-};
-
-const ManagementPage = ({ onSwitchRole }) => {
-    const [activeTab, setActiveTab] = useState('dashboard');
-     const [schedules, setSchedules] = useState({ dispatching: dispatchingScheduleData, management: managementScheduleData });
-    const tabs = {
-        dashboard: <Dashboard schedules={schedules} setSchedules={setSchedules} />,
-        pm_list: <PropertyManagement />,
-        payments: <OutstandingPayments />,
-        files: <AdminFiles />,
-        browser: <Browser />
-    };
-    return (
-        <AppLayout role="Менеджер" onSwitchRole={onSwitchRole} activeTab={activeTab} setActiveTab={setActiveTab} tabs={
-             {'dashboard': 'Dashboard', 'pm_list': 'Property Management', 'payments': 'Outstanding Payments', 'files': 'Administrative Files', 'browser': 'Browser'}
-        }>
-            {tabs[activeTab]}
-        </AppLayout>
-    );
-};
-
-const AppLayout = ({ role, onSwitchRole, children, activeTab, setActiveTab, tabs }) => (
-    <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-lg">
-        <header className="p-4 border-b border-gray-200 bg-gray-50 rounded-t-xl flex items-center justify-between">
-            <div className="flex items-center gap-4">
-                 <img src="https://thebayservices.com/wp-content/uploads/2022/07/bay-services-logo-300x100.png" alt="Logo" className="h-12"/>
+            return (
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-800">The Bay Services</h1>
-                    <p className="text-md text-gray-500">Dashboard</p>
+                    <div className="mb-6">
+                        <label htmlFor="operator-select" className="block text-sm font-medium text-gray-700 mb-2">Выберите оператора для подстановки в шаблон:</label>
+                        <select id="operator-select" value={selectedOperator} onChange={e => setSelectedOperator(e.target.value)}
+                            className="w-full max-w-xs p-2 border border-gray-300 rounded-md shadow-sm">
+                            {operators.map(op => <option key={op} value={op}>{op}</option>)}
+                        </select>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {autoAnswersData.map((answer, index) => {
+                            const message = answer.Message.replace(/{operatorName}/g, selectedOperator);
+                            return (
+                                <div key={index} className="border rounded-lg p-4 bg-white shadow-sm flex flex-col">
+                                    <h4 className="font-semibold text-gray-800 mb-2">{answer['Service type']}</h4>
+                                    <textarea readOnly value={message} className="text-sm text-gray-600 bg-gray-50 p-3 rounded-md flex-grow resize-none h-64"></textarea>
+                                    <button onClick={() => copyToClipboard(message)} className="flex items-center justify-center gap-2 copy-button mt-3 w-full bg-blue-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-blue-600">
+                                        <Icon name="ClipboardCopy" size={16} /> Копировать
+                                    </button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            );
+        };
+
+        const ServiceInfo = () => {
+            const { useState, useMemo } = React;
+            const [selectedService, setSelectedService] = useState(null);
+
+            const combinedServiceData = useMemo(() => {
+                return serviceInfoData.map(info => {
+                    const priceInfo = servicesAndPricesData.find(p => p.Service.toLowerCase().includes(info.SERVICE.split(' ')[0].toLowerCase()));
+                    const recommendation = serviceRecommendationsData.find(r => r.Service.toLowerCase().includes(info.SERVICE.split(' ')[0].toLowerCase()));
+                    return {
+                        ...info,
+                        Price: priceInfo ? priceInfo.Price : 'N/A',
+                        Note: priceInfo ? priceInfo.Note : '',
+                        Recommendation: recommendation ? recommendation.Recommendation : 'Нет рекомендаций'
+                    };
+                });
+            }, []);
+
+            const ServiceModal = ({ service, onClose }) => (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl max-h-full overflow-y-auto">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-2xl font-bold text-gray-800">{service.SERVICE}</h3>
+                            <button onClick={onClose} className="text-gray-500 hover:text-gray-800"><Icon name="X" size={24} /></button>
+                        </div>
+                        <div className="space-y-4 text-gray-700">
+                            <div className="p-3 bg-blue-50 rounded-md"><strong>Цена:</strong> {service.Price} {service.Note && `(${service.Note})`}</div>
+                            <div><strong>Когда необходимо:</strong><p className="whitespace-pre-wrap pl-2">{service["WHEN IT NEEDS"]}</p></div>
+                            <div><strong>Частота:</strong><p className="whitespace-pre-wrap pl-2">{service["SERVICE FREQUENCY"]}</p></div>
+                            <div><strong>Методы:</strong><p className="whitespace-pre-wrap pl-2">{service["SERVICE METHODS"]}</p></div>
+                            <div><strong>Этапы:</strong><p className="whitespace-pre-wrap pl-2">{service["SERVICE STAGES"]}</p></div>
+                            <div><strong>Продолжительность:</strong><p className="pl-2">{service["SERVICE DURATION"]}</p></div>
+                            <div className="pt-4 border-t"><strong>Рекомендации:</strong><p className="whitespace-pre-wrap pl-2">{service.Recommendation}</p></div>
+                        </div>
+                    </div>
+                </div>
+            );
+
+            return (
+                <div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        {combinedServiceData.map((service, index) => (
+                            <button key={index} onClick={() => setSelectedService(service)} 
+                                    className="text-center p-4 border rounded-lg bg-white shadow-sm hover:bg-blue-50 hover:shadow-md transition-all h-24 flex items-center justify-center">
+                                <h4 className="font-semibold text-gray-800">{service.SERVICE}</h4>
+                            </button>
+                        ))}
+                    </div>
+                    {selectedService && <ServiceModal service={selectedService} onClose={() => setSelectedService(null)} />}
+                </div>
+            );
+        };
+
+        const PropertyManagement = () => {
+            const { useState } = React;
+            const [list, setList] = useState(propertyManagementData);
+            const [showModal, setShowModal] = useState(false);
+            
+            const addCompany = (company) => {
+                setList([...list, company]);
+                setShowModal(false);
+            };
+            
+            const AddModal = () => (
+                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white p-6 rounded-lg w-full max-w-md">
+                        <h3 className="text-xl font-bold mb-4">Добавить новую компанию</h3>
+                        <p>Форма для добавления новой компании.</p>
+                        <button onClick={() => addCompany({Company: 'New Co', Phone: '123-456'})} className="bg-blue-500 text-white px-4 py-2 rounded-md mt-4">Добавить</button>
+                        <button onClick={() => setShowModal(false)} className="ml-2 text-gray-600">Отмена</button>
+                    </div>
+                </div>
+            );
+
+            return (
+                <div>
+                    <button onClick={() => setShowModal(true)} className="bg-green-500 text-white px-4 py-2 rounded-md mb-4 flex items-center gap-2">
+                        <Icon name="PlusCircle" size={18} /> Добавить
+                    </button>
+                    <div className="overflow-x-auto rounded-lg border">
+                        <table className="w-full table-auto text-sm">
+                            <thead>
+                                <tr className="bg-gray-200">
+                                   {Object.keys(list[0]).map(h => <th key={h} className="p-3 font-semibold text-left">{h}</th>)}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {list.map((item, i) => <tr key={i} className="border-b">{Object.values(item).map((val, j) => <td key={j} className="p-3">{val}</td>)}</tr>)}
+                            </tbody>
+                        </table>
+                    </div>
+                    {showModal && <AddModal />}
+                </div>
+            );
+        };
+
+        const OutstandingPayments = () => {
+            const { useState, useMemo } = React;
+            const [payments, setPayments] = useState(outstandingPaymentsData);
+            const [showArchived, setShowArchived] = useState(false);
+
+            const toggleStatus = (id) => {
+                setPayments(payments.map(p => p.id === id ? {...p, status: p.status === 'PAID' ? 'OUTSTANDING' : 'PAID'} : p));
+            };
+
+            const totalDue = useMemo(() => {
+                return payments
+                    .filter(p => p.status === 'OUTSTANDING')
+                    .reduce((sum, p) => sum + parseFloat(p['Amount due']), 0)
+                    .toFixed(2);
+            }, [payments]);
+            
+            const filteredPayments = showArchived ? payments : payments.filter(p => p.status !== 'PAID');
+
+            return (
+                <div>
+                    <div className="flex justify-between items-center mb-4">
+                         <button onClick={() => setShowArchived(!showArchived)} className="bg-gray-200 px-4 py-2 rounded-md">
+                            {showArchived ? 'Скрыть оплаченные' : 'Показать все (включая оплаченные)'}
+                        </button>
+                        <div className="text-xl font-bold text-red-600">К оплате: ${totalDue}</div>
+                    </div>
+                    <div className="overflow-x-auto rounded-lg border">
+                        <table className="w-full table-auto text-sm">
+                            <thead><tr className="bg-gray-200">
+                                <th className="p-3 text-left">Customer</th><th className="p-3 text-left">Amount</th><th className="p-3 text-left">Date</th><th className="p-3 text-left">Status</th>
+                            </tr></thead>
+                            <tbody>
+                                {filteredPayments.map(p => (
+                                    <tr key={p.id} className="border-b">
+                                        <td className="p-3">{p['Customer name']}</td>
+                                        <td className="p-3">${p['Amount due']}</td>
+                                        <td className="p-3">{p['Invoice date']}</td>
+                                        <td className="p-3">
+                                            <button onClick={() => toggleStatus(p.id)} 
+                                                className={`px-3 py-1 text-xs font-semibold rounded-full ${p.status === 'PAID' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                                {p.status}
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        };
+
+        const AdminFiles = () => {
+            const { useState } = React;
+            const [files, setFiles] = useState([]);
+
+            const handleFileUpload = (event) => {
+                const uploadedFile = event.target.files[0];
+                if (uploadedFile) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const newFile = {
+                            name: uploadedFile.name,
+                            url: e.target.result,
+                            type: uploadedFile.type,
+                        };
+                        setFiles([...files, newFile]);
+                    };
+                    reader.readAsDataURL(uploadedFile);
+                }
+            };
+            
+            const removeFile = (fileName) => {
+                setFiles(files.filter(f => f.name !== fileName));
+            };
+
+            return (
+                <div>
+                     <input type="file" onChange={handleFileUpload} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>
+                     <div className="mt-6 space-y-3">
+                        {files.length > 0 ? files.map((file, i) => (
+                            <div key={i} className="flex items-center justify-between p-3 bg-gray-100 rounded-lg">
+                                <span>{file.name}</span>
+                                <div>
+                                    <a href={file.url} download={file.name} className="inline-flex items-center gap-2 text-blue-600 hover:underline mr-4"><Icon name="Download" size={16}/> Скачать</a>
+                                    <button onClick={() => removeFile(file.name)} className="text-red-500 hover:text-red-700"><Icon name="Trash2" size={16}/></button>
+                                </div>
+                            </div>
+                        )) : <p className="text-gray-500">Файлы не загружены.</p>}
+                     </div>
+                </div>
+            );
+        };
+
+        const Browser = () => (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-[70vh]">
+                <div className="border rounded-lg flex flex-col">
+                    <div className="p-2 bg-gray-100 border-b">Браузер 1</div>
+                    <iframe src="https://www.google.com/search?igu=1" className="w-full flex-grow"></iframe>
+                </div>
+                <div className="border rounded-lg flex flex-col">
+                    <div className="p-2 bg-gray-100 border-b">Браузер 2</div>
+                    <iframe src="https://www.google.com/search?igu=1" className="w-full flex-grow"></iframe>
                 </div>
             </div>
-            <button onClick={() => onSwitchRole(null)} className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-100">
-                Сменить роль ({role})
-            </button>
-        </header>
-        <nav className="p-4 border-b border-gray-200">
-            <div className="flex flex-wrap items-center gap-2">
-                {Object.entries(tabs).map(([key, title]) => (
-                    <button key={key} onClick={() => setActiveTab(key)} 
-                            className={`tab-button text-sm font-medium border-b-2 px-4 py-2 rounded-md transition-all ${activeTab === key ? 'border-blue-500 text-blue-600 bg-blue-50' : 'border-transparent text-gray-600 hover:bg-gray-100'}`}>
-                        {title}
+        );
+
+        // --- ОСНОВНЫЕ КОМПОНЕНТЫ СТРАНИЦ ---
+
+        const OperatorPage = ({ onSwitchRole }) => {
+            const { useState } = React;
+            const [activeTab, setActiveTab] = useState('dashboard');
+            const [schedules, setSchedules] = useState({ dispatching: JSON.parse(JSON.stringify(dispatchingScheduleData)), management: JSON.parse(JSON.stringify(managementScheduleData)) });
+            const tabs = {
+                dashboard: <Dashboard schedules={schedules} setSchedules={setSchedules} />,
+                answers: <AutoAnswers />,
+                service_info: <ServiceInfo />,
+                pm_list: <PropertyManagement />,
+                browser: <Browser />
+            };
+            return (
+                <AppLayout role="Оператор" onSwitchRole={onSwitchRole} activeTab={activeTab} setActiveTab={setActiveTab} tabs={
+                    {'dashboard': 'Dashboard', 'answers': 'Automatic Answers', 'service_info': 'Service Info & Prices', 'pm_list': 'Property Management', 'browser': 'Browser'}
+                }>
+                    {tabs[activeTab]}
+                </AppLayout>
+            );
+        };
+
+        const ManagementPage = ({ onSwitchRole }) => {
+            const { useState } = React;
+            const [activeTab, setActiveTab] = useState('dashboard');
+             const [schedules, setSchedules] = useState({ dispatching: JSON.parse(JSON.stringify(dispatchingScheduleData)), management: JSON.parse(JSON.stringify(managementScheduleData)) });
+            const tabs = {
+                dashboard: <Dashboard schedules={schedules} setSchedules={setSchedules} />,
+                pm_list: <PropertyManagement />,
+                payments: <OutstandingPayments />,
+                files: <AdminFiles />,
+                browser: <Browser />
+            };
+            return (
+                <AppLayout role="Менеджер" onSwitchRole={onSwitchRole} activeTab={activeTab} setActiveTab={setActiveTab} tabs={
+                     {'dashboard': 'Dashboard', 'pm_list': 'Property Management', 'payments': 'Outstanding Payments', 'files': 'Administrative Files', 'browser': 'Browser'}
+                }>
+                    {tabs[activeTab]}
+                </AppLayout>
+            );
+        };
+
+        const AppLayout = ({ role, onSwitchRole, children, activeTab, setActiveTab, tabs }) => (
+            <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-lg">
+                <header className="p-4 border-b border-gray-200 bg-gray-50 rounded-t-xl flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                         <img src="https://thebayservices.com/wp-content/uploads/2022/07/bay-services-logo-300x100.png" alt="Logo" className="h-12"/>
+                        <div>
+                            <h1 className="text-2xl font-bold text-gray-800">The Bay Services</h1>
+                            <p className="text-md text-gray-500">Dashboard</p>
+                        </div>
+                    </div>
+                    <button onClick={() => onSwitchRole(null)} className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-100">
+                        Сменить роль ({role})
                     </button>
-                ))}
+                </header>
+                <nav className="p-4 border-b border-gray-200">
+                    <div className="flex flex-wrap items-center gap-2">
+                        {Object.entries(tabs).map(([key, title]) => (
+                            <button key={key} onClick={() => setActiveTab(key)} 
+                                    className={`tab-button text-sm font-medium border-b-2 px-4 py-2 rounded-md transition-all ${activeTab === key ? 'border-blue-500 text-blue-600 bg-blue-50' : 'border-transparent text-gray-600 hover:bg-gray-100'}`}>
+                                {title}
+                            </button>
+                        ))}
+                    </div>
+                </nav>
+                <main className="p-6">{children}</main>
             </div>
-        </nav>
-        <main className="p-6">{children}</main>
-    </div>
-);
+        );
 
 
-export default function App() {
-    const [role, setRole] = useState(null);
+        function App() {
+            const { useState } = React;
+            const [role, setRole] = useState(null);
 
-    if (!role) {
-        return <RoleSelectionScreen onSelectRole={setRole} />;
-    }
+            if (!role) {
+                return <RoleSelectionScreen onSelectRole={setRole} />;
+            }
 
-    return (
-        <div className="p-4 md:p-8">
-            {role === 'operator' && <OperatorPage onSwitchRole={setRole} />}
-            {role === 'management' && <ManagementPage onSwitchRole={setRole} />}
-        </div>
-    );
-}
+            return (
+                <div className="p-4 md:p-8">
+                    {role === 'operator' && <OperatorPage onSwitchRole={setRole} />}
+                    {role === 'management' && <ManagementPage onSwitchRole={setRole} />}
+                </div>
+            );
+        }
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
