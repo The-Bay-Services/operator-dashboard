@@ -1,101 +1,165 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>The Bay Services Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        body { font-family: 'Inter', sans-serif; background-color: #f0f2f5; }
+        .tab-button.active {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+            color: #2563eb;
+        }
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 50;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            max-width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            width: 600px;
+            position: relative;
+        }
+        .trash-icon {
+            cursor: pointer;
+            color: #9ca3af;
+            display: inline-block;
+            margin-left: 8px;
+            visibility: hidden;
+        }
+        th:hover .trash-icon {
+            visibility: visible;
+        }
+        .trash-icon:hover {
+            color: #ef4444;
+        }
+         /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
-    <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script type="module">
+        // Firebase Imports
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { 
+            getFirestore, collection, doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, onSnapshot, writeBatch, query, where
+        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    <script type="text/babel">
-        // --- Иконки (замена библиотеки Lucide) ---
-        const Icon = ({ name, size = 16 }) => {
-            const icons = {
-                User: '👤', Briefcase: '💼', FileUp: '📤', Download: '📥', Building2: '🏢',
-                ClipboardCopy: '📋', CircleDollarSign: '💲', PlusCircle: '⊕', Trash2: '🗑️',
-                X: '✕', Search: '🔍', Clock: '🕒', Users: '👥', Sun: '☀️', Moon: '🌙',
-                Cloud: '☁️', CloudRain: '🌧️', CloudSnow: '❄️', Zap: '⚡', Wind: '💨',
-                Edit: '✏️', Save: '💾', Plus: '➕', Trash: '🗑️', ExternalLink: '↗️'
-            };
-            return <span style={{ fontSize: `${size}px` }}>{icons[name] || ''}</span>;
+        // Your Firebase configuration has been successfully embedded.
+        const firebaseConfig = {
+            apiKey: "AIzaSyDLuxy6E6pOA6HYjeD6qp_5r0ANleHCnp8",
+            authDomain: "the-bay-services.firebaseapp.com",
+            projectId: "the-bay-services",
+            storageBucket: "the-bay-services.appspot.com",
+            messagingSenderId: "194632911643",
+            appId: "1:194632911643:web:44ddedf76d4bc503c6a1be",
+            measurementId: "G-92QZ39WTVR"
         };
 
-        // --- ДАННЫЕ ПРИЛОЖЕНИЯ ---
-        const dispatchingScheduleData = [
-            { "Days": "Monday", "Vuqar/David": "8:00 AM-11:00 AM", "Kanan/Kenny": "11:00 AM-1:00 PM", "Nahida/Emma": "1:00 PM-3:00 PM", "Narmina/Nora": "3:00 PM-8:00 PM", "Orxan/Eric": "8:00 PM-10:00 PM" },
-            { "Days": "Tuesday", "Vuqar/David": "8:00 AM-11:00 AM", "Kanan/Kenny": "11:00 AM-1:00 PM", "Nahida/Emma": "1:00 PM-3:00 PM", "Narmina/Nora": "3:00 PM-8:00 PM", "Orxan/Eric": "8:00 PM-10:00 PM" },
-            { "Days": "Wednesday", "Vuqar/David": "8:00 AM-11:00 AM", "Kanan/Kenny": "11:00 AM-1:00 PM", "Nahida/Emma": "1:00 PM-3:00 PM", "Narmina/Nora": "3:00 PM-8:00 PM", "Orxan/Eric": "8:00 PM-10:00 PM" },
-            { "Days": "Thursday", "Vuqar/David": "8:00 AM-11:00 AM", "Kanan/Kenny": "11:00 AM-1:00 PM", "Nahida/Emma": "1:00 PM-3:00 PM", "Narmina/Nora": "3:00 PM-8:00 PM", "Orxan/Eric": "8:00 PM-10:00 PM" },
-            { "Days": "Friday", "Vuqar/David": "8:00 AM-11:00 AM", "Kanan/Kenny": "11:00 AM-1:00 PM", "Nahida/Emma": "1:00 PM-3:00 PM", "Narmina/Nora": "3:00 PM-8:00 PM", "Orxan/Eric": "8:00 PM-10:00 PM" },
-            { "Days": "Saturday", "Vuqar/David": "OFF", "Kanan/Kenny": "8:00 AM-7:00 PM", "Nahida/Emma": "OFF", "Narmina/Nora": "OFF", "Orxan/Eric": "OFF" },
-            { "Days": "Sunday", "Vuqar/David": "OFF", "Kanan/Kenny": "OFF", "Nahida/Emma": "8:00 AM-7:00 PM", "Narmina/Nora": "OFF", "Orxan/Eric": "OFF" }
-        ];
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        signInAnonymously(auth).catch(error => console.error("Anonymous sign-in failed:", error));
+        
+        window.fb = { db, collection, doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, onSnapshot, writeBatch, query, where };
+    </script>
 
-        const managementScheduleData = [
-            { "Days": "Monday", "Vuqar/David": "8:00 AM-12:00 PM", "Nahida/Emma": "12:00 PM-4:00 PM" },
-            { "Days": "Tuesday", "Vuqar/David": "8:00 AM-12:00 PM", "Nahida/Emma": "12:00 PM-4:00 PM" },
-            { "Days": "Wednesday", "Vuqar/David": "8:00 AM-12:00 PM", "Nahida/Emma": "12:00 PM-4:00 PM" },
-            { "Days": "Thursday", "Vuqar/David": "8:00 AM-12:00 PM", "Nahida/Emma": "12:00 PM-4:00 PM" },
-            { "Days": "Friday", "Vuqar/David": "8:00 AM-12:00 PM", "Nahida/Emma": "12:00 PM-4:00 PM" },
-            { "Days": "Saturday", "Vuqar/David": "OFF", "Nahida/Emma": "OFF" },
-            { "Days": "Sunday", "Vuqar/David": "OFF", "Nahida/Emma": "OFF" }
-        ];
+    <script type="text/babel">
+        const { useState, useEffect, useCallback, Fragment } = React;
 
-        const autoAnswersData = [
-            { "Service type": "Air Duct cleaning", "Message": "Hi [Client Name],\n\nThis is {operatorName} with Bay Services and thank you for considering Air Duct cleaning services with us.\n\n1️⃣— The price of the deep cleaning is $340 up to 10 registers/ducts. Price includes cleaning & sanitizing intake and return duct & vents.\n\n2️⃣ — After 10 vents the price for each vent is $25\n\n3️⃣ — Please kindly note that you will always get a free dryer vent, kitchen exhaust/range and chimney/fireplace inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment." },
-            { "Service type": "Chimney /fireplace cleaning", "Message": "Hi [Client Name],\n\nThis is {operatorName} with Bay Services and thank you for considering Chimney/fireplace cleaning services with us.\n\n1️⃣ — The price of the chimney / fireplace inspection and cleaning will be $169.\n\n2️⃣ — Please kindly note that you will always get a free dryer vent, kitchen exhaust/range and HVAC vents/registers inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment." },
-            { "Service type": "Dryer vent cleaning", "Message": "Hi [Client Name],\n\nThis is {operatorName} with Bay Services and thank you for considering dryer vent & duct cleaning services with us.\n\n1️⃣ -- The price of a dryer vent cleaning will be $139\n\n2️⃣ -- Please kindly note that you will always get a free chimney / fireplace, kitchen exhaust/range and HVAC vents/registers inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment." },
-            { "Service type": "Outstanding Payment Request", "Message": "Hi [Client Name],\n\nThis is {operatorName} with Bay Services. Hope you're doing well.\n\nI’m reaching out about the outstanding payment for invoice #[Invoice #]. We’d appreciate it if you could arrange payment at your earliest convenience.\n\nThank you!\n\n{operatorName} from Bay Services" },
-            { "Service type": "AFTER SERVICE FOLLOW-UP MESSAGE", "Message": "Hi [Client Name],\n\nThis is {operatorName} with Bay Services. I’m reaching out for a after-service follow-up regarding today’s appointment.\n\nCould you please confirm everything went smoothly and share if you have any feedback?\n\nThank you!" }
-        ];
-
-        const servicesAndPricesData = [
-            { "Service": "Air Duct", "Type": "Cleaning", "Price": "340", "Note": "Up to 10 vents, after each additional $25" },
-            { "Service": "Dryer vent (side-by-side)", "Type": "Cleaning", "Price": "139", "Note": "" },
-            { "Service": "Dryer vent (stacked)", "Type": "Cleaning", "Price": "199", "Note": "" },
-            { "Service": "Chimney /fireplace", "Type": "Cleaning", "Price": "169", "Note": "" },
-            { "Service": "Kitchen exhaust/range", "Type": "Cleaning", "Price": "$199-$499", "Note": "Depend on the level of the grease" },
-            { "Service": "Bath fan", "Type": "Cleaning", "Price": "49", "Note": "Per each; if 2 services and more price is $39" },
-        ];
-
-        const serviceInfoData = [
-            {"SERVICE":"Dryer Vent Cleaning","WHEN IT NEEDS":"• Clothes take longer to dry.\n• Dryer feels very hot or shuts off due to overheating.\n• Burning smell or visible lint around the dryer.","SERVICE FREQUENCY":"• Once a year\n• Every 6 months if used frequently.","SERVICE METHODS":"• Rotary brush","SERVICE STAGES":"• Inspection\n• Interior Cleaning\n• Airflow Measurement","SERVICE DURATION":"30 mins"},
-            {"SERVICE":"Air Ducts Cleaning","WHEN IT NEEDS":"• Visible dust blowing from supply vents.\n• Uneven airflow or weak airflow.\n• Allergies, asthma, or respiratory issues increase.","SERVICE FREQUENCY":"• Every 3-5 years","SERVICE METHODS":"• Negative Pressure (Industrial Vacuum)\n• Rotary brush","SERVICE STAGES":"• Covering vents\n• Creating negative pressure\n• Cleaning each vent\n• Sanitizing","SERVICE DURATION":"1-2 hours"},
-            {"SERVICE":"Chimney Sweep","WHEN IT NEEDS":"• Visible soot or creosote buildup.\n• Difficulty starting fires or poor draft.\n• Odors from the fireplace when not in use.","SERVICE FREQUENCY":"• Once a year, before the start of the heating season.","SERVICE METHODS":"• Manual brushing with various brush types.","SERVICE STAGES":"• Inspection of flue, damper, and firebox.\n• Laying down protective coverings.\n• Brushing the flue liner.\n• Cleaning the smoke shelf, chamber, and firebox.","SERVICE DURATION":"45-90 mins"},
-        ];
-
-        const serviceRecommendationsData = [
-            {"Service":"Dryer Vent Cleaning","Recommendation":"Neglecting the cleaning of your dryer vent can lead to serious consequences. Lint buildup can overheat and ignite, increasing the risk of a fire hazard. A clogged vent also affects your daily life, leading to increased energy usage and longer drying times."},
-            {"Service":"Air Ducts Cleaning","Recommendation":"Dirty air ducts can spread dust, allergens, and other contaminants throughout your home, leading to poor indoor air quality. This can worsen allergy and asthma symptoms and cause respiratory irritation."},
-            {"Service":"Chimney Sweep","Recommendation":"The buildup of creosote can ignite and cause a chimney fire, which can spread to the rest of the house. Also, a dirty chimney can release carbon monoxide into your home, which is a poisonous gas."}
-        ];
-
-        const propertyManagementData = [
-            {"Company":"Agile Appliance","Invoicing Email":"","Phone":"(650) 625-7475","Representative":"","Position":"","Email":"","Phone 2":"","Discount":"","Note":""},
-            {"Company":"AmeFix Home Solutions","Invoicing Email":"vendor.amefix@gmail.com","Phone":"(978) 715-0348","Representative":"Sarah Scarlet","Position":"","Email":"","Phone 2":"","Discount":"","Note":""},
-            {"Company":"W2 Property Management","Invoicing Email":"noe@w2propertymgt.com","Phone":"415-316-4369","Representative":"Noe de la Cruz","Position":"","Email":"","Phone 2":"","Discount":"","Note":""},
-        ];
-
-        const outstandingPaymentsData = [
-            {"id": 1, "Customer name":"W2 PROPERTIES #205","Amount due":"749.76", "status":"OUTSTANDING", "Invoice date": "2025-09-12"},
-            {"id": 2, "Customer name":"Joann Dethman.","Amount due":"339", "status":"OUTSTANDING", "Invoice date": "2025-09-15"},
-            {"id": 3, "Customer name":"Agile Appliance","Amount due":"379", "status":"OUTSTANDING", "Invoice date": "2025-09-10"},
-            {"id": 4, "Customer name":"HONEY HOMES", "Amount due":"339", "status":"PAID", "Invoice date": "2025-09-15"}
-        ];
-
-        // --- ХУКИ И УТИЛИТЫ ---
+        const excelSerialDateToJSDate = (serial) => {
+          const utc_days  = Math.floor(serial - 25569);
+          const utc_value = utc_days * 86400;                                        
+          const date_info = new Date(utc_value * 1000);
+          return new Date(date_info.getFullYear(), date_info.getMonth(), date_info.getDate()).toLocaleDateString('en-US');
+        }
+        
+        const initialData = {
+            dispatchingSchedule: {
+                headers: ["Days", "Vuqar/David", "Kanan/Kenny", "Nahida/Emma", "Narmina/Nora", "Orxan/Eric"],
+                rows: [
+                    ["Monday", "8:00AM-11:00AM", "11:00AM-1:00PM", "1:00PM-3:00PM", "3:00PM-8:00PM", "8:00PM-10:00PM"],
+                    ["Tuesday", "8:00AM-11:00AM", "11:00AM-1:00PM", "1:00PM-3:00PM", "3:00PM-8:00PM", "8:00PM-10:00PM"],
+                    ["Wednesday", "8:00AM-11:00AM", "11:00AM-1:00PM", "1:00PM-3:00PM", "3:00PM-8:00PM", "8:00PM-10:00PM"],
+                    ["Thursday", "8:00AM-11:00AM", "11:00AM-1:00PM", "1:00PM-3:00PM", "3:00PM-8:00PM", "8:00PM-10:00PM"],
+                    ["Friday", "8:00AM-11:00AM", "11:00AM-1:00PM", "1:00PM-3:00PM", "3:00PM-8:00PM", "8:00PM-10:00PM"],
+                    ["Saturday", "OFF", "08:00AM-7:00PM", "OFF", "OFF", "OFF"],
+                    ["Sunday", "OFF", "OFF", "OFF", "3:00PM-8:00PM", "8:00PM-10:00PM"]
+                ]
+            },
+            managementSchedule: {
+                headers: ["Days", "Vuqar/David", "Nahida/Emma"],
+                rows: [
+                    ["Monday", "8:00AM-12:00PM", "12:00PM-4:00PM"],
+                    ["Tuesday", "8:00AM-12:00PM", "12:00PM-4:00PM"],
+                    ["Wednesday", "8:00AM-12:00PM", "12:00PM-4:00PM"],
+                    ["Thursday", "8:00AM-12:00PM", "12:00PM-4:00PM"],
+                    ["Friday", "8:00AM-12:00PM", "12:00PM-4:00PM"],
+                    ["Saturday", "OFF", "OFF"],
+                    ["Sunday", "OFF", "OFF"]
+                ]
+            },
+            automaticAnswers: [
+                { title: 'Air Duct cleaning', text: 'Hi       ,\n\nThis is [NAME] with Bay Services and thank you for considering air duct cleaning services with us.\n\n1️⃣ -- The price for the full HVAC system cleaning for up to 10 vents will be $340 ($25 for each additional).\n\n2️⃣ -- Please kindly note that you will always get a free dryer vent, kitchen exhaust/range, and chimney/fireplace inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment.' },
+                { title: 'Chimney /fireplace cleaning', text: 'Hi       ,\n\nThis is [NAME] with Bay Services and thank you for considering Chimney/fireplace cleaning services with us.\n\n1️⃣ — The price of the chimney / fireplace inspection and cleaning will be $169.\n\n2️⃣  — Please kindly note that  you will always get a free dryer vent, kitchen exhaust/range and HVAC vents/registers inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment.' },
+                { title: 'Dryer vent cleaning', text: 'Hi       ,\n\nThis is [NAME] with Bay Services and thank you for considering dryer vent & duct cleaning services with us.\n\n1️⃣ -- The price of a dryer vent cleaning will be $139\n\n2️⃣  -- Please kindly note that  you will always get a free chimney / fireplace , kitchen exhaust/range and HVAC vents/registers inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment.' },
+            ],
+            propertyManagement: [
+                { "Company": "Agile Appliance", "Invoicing Email": "", "Phone": "(650) 625-7475", "Representative": "", "Position": "", "Email": ""},
+                { "Company": "AmeFix Home Solutions", "Invoicing Email": "vendor.amefix@gmail.com", "Phone": "(978) 715-0348", "Representative": "Sarah Scarlet", "Position": "", "Email": ""},
+                { "Company": "Honey Homes", "Invoicing Email": "invoices@honeyhomes.com", "Phone": "", "Representative": "", "Position": "", "Email": ""},
+            ],
+            outstandingPayments: [
+                { "CUSTOMER": "W2 PROPERTIES #205", "PHONE NUMBER": "", "EMAIL": "noe@w2propertymgt.com", "AMMOUNT": 749.76, "INVOICE No": "9621", "STATUS": "OUTSTANDING", "INVOICE DATE": excelSerialDateToJSDate(45912), "DUE PERIOD": 9},
+                { "CUSTOMER": "Joann Dethman.", "PHONE NUMBER": "(650) 269-0659", "EMAIL": "joanndethman@gmail.com", "AMMOUNT": 339, "INVOICE No": "9577", "STATUS": "OUTSTANDING", "INVOICE DATE": excelSerialDateToJSDate(45915), "DUE PERIOD": 6},
+                { "CUSTOMER": "Agile Appliance", "PHONE NUMBER": "(650) 625-7475", "EMAIL": "", "AMMOUNT": 379, "INVOICE No": "9570", "STATUS": "OUTSTANDING", "INVOICE DATE": excelSerialDateToJSDate(45910), "DUE PERIOD": 11},
+                { "CUSTOMER": "Tetiana Grinberg", "PHONE NUMBER": "(510) 345-9846", "EMAIL": "tetiana.grinberg@gmail.com", "AMMOUNT": 99, "INVOICE No": "9503", "STATUS": "OUTSTANDING", "INVOICE DATE": excelSerialDateToJSDate(45905), "DUE PERIOD": 16},
+                { "CUSTOMER": "Brittany Njissang.", "PHONE NUMBER": "(510) 305-5904", "EMAIL": "bnjissang@gmail.com", "AMMOUNT": 199, "INVOICE No": "9502", "STATUS": "PAID", "INVOICE DATE": excelSerialDateToJSDate(45908), "DUE PERIOD": 13}
+            ],
+             services: [
+                { name: 'Dryer Vent Cleaning', what: 'Professional removal of lint, debris, and obstructions from dryer vent lines to restore proper airflow and prevent dangerous fire hazards.', signs: 'Clothes take longer to dry, Dryer feels very hot, Visible lint around vent, Lint blowing back inside', process: 'System inspection, Rotary brush cleaning, Airflow verification, Exterior cleaning', price: '$139 (side-by-side) / $199 (stacked)', duration: '~30 minutes', frequency: 'Once a year', note: 'Priority: Fire Safety.' },
+                { name: 'Air Duct Cleaning', what: 'Comprehensive cleaning of HVAC system including supply/return ducts, registers, grilles, and coils to remove pollutants and improve indoor air quality and system efficiency.', signs: 'Visible dust from vents, Uneven airflow in rooms, Allergies worsen indoors, After renovation/construction', process: 'Visual inspection with cameras, Negative air pressure setup, Rotary brush scrubbing, System sanitization', price: '$339 (up to 10 vents), +$25 each additional', duration: '~1.5 hours', frequency: 'Every 3-5 years', note: 'Improves Air Quality & System Efficiency.' },
+                { name: 'Chimney / Fireplace Cleaning', what: 'Thorough cleaning of chimney flue, smoke chamber, and firebox to remove creosote buildup, blockages, and soot, ensuring safe operation.', signs: 'Visible soot or creosote, Smell of smoke when not in use, Animals inside, Difficulty starting fires', process: 'System inspection & setup, Flue & smoke chamber cleaning, Firebox & damper cleaning, Final inspection', price: '$169', duration: '45-90 mins', frequency: 'Once a year', note: 'Priority: Fire Safety.' },
+             ]
+        };
+        
+        // --- Helper Functions & Hooks ---
         const useCaliforniaTime = () => {
-            const { useState, useEffect } = React;
             const [time, setTime] = useState(new Date());
 
             useEffect(() => {
@@ -103,477 +167,881 @@
                 return () => clearInterval(timerId);
             }, []);
 
-            const timeZone = 'America/Los_Angeles';
-            const dateFormatter = new Intl.DateTimeFormat('ru-RU', {
-                timeZone,
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-            });
-            const timeFormatter = new Intl.DateTimeFormat('en-US', {
-                timeZone,
-                hour: 'numeric',
-                minute: 'numeric',
-                second: 'numeric',
-                hour12: true
-            });
-
-            return {
-                dateString: dateFormatter.format(time),
-                timeString: timeFormatter.format(time),
-                currentDate: time
+            const options = {
+                timeZone: 'America/Los_Angeles',
+                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+                hour: '2-digit', minute: '2-digit', second: '2-digit'
             };
+            return new Intl.DateTimeFormat('en-US', options).format(time);
         };
 
-        // --- КОМПОНЕНТЫ ИНТЕРФЕЙСА ---
+        const useWeather = () => {
+            const [weather, setWeather] = useState({ temp: 'N/A', forecast: 'Loading...' });
 
-        const RoleSelectionScreen = ({ onSelectRole }) => {
-            return (
-                <div className="flex items-center justify-center h-screen bg-gray-100">
-                    <div className="text-center p-10 bg-white rounded-2xl shadow-xl">
-                        <img src="https://thebayservices.com/wp-content/uploads/2022/07/bay-services-logo-300x100.png" alt="Logo" className="mx-auto mb-8" />
-                        <h1 className="text-3xl font-bold text-gray-800 mb-4">Добро пожаловать</h1>
-                        <p className="text-gray-600 mb-8">Пожалуйста, выберите свою роль для продолжения</p>
-                        <div className="flex justify-center gap-4">
-                            <button onClick={() => onSelectRole('operator')} className="flex items-center gap-2 bg-blue-500 text-white font-semibold py-3 px-6 rounded-lg hover:bg-blue-600 transition-transform transform hover:scale-105">
-                                <Icon name="User" size={20} /> Оператор
-                            </button>
-                            <button onClick={() => onSelectRole('management')} className="flex items-center gap-2 bg-gray-700 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-800 transition-transform transform hover:scale-105">
-                                <Icon name="Briefcase" size={20} /> Менеджер
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            );
-        };
+            useEffect(() => {
+                const fetchWeather = async () => {
+                    try {
+                        const pointsResponse = await fetch('https://api.weather.gov/points/37.3541,-121.9552');
+                        if (!pointsResponse.ok) throw new Error('Could not fetch weather points.');
+                        const pointsData = await pointsResponse.json();
+                        const forecastUrl = pointsData.properties.forecast;
 
-        const Dashboard = ({ schedules, setSchedules }) => {
-            const { dateString, timeString, currentDate } = useCaliforniaTime();
-            const { useMemo } = React;
-            
-            const parseTime = (timeStr, date) => {
-                if (!timeStr || String(timeStr).toLowerCase() === 'off') return null;
-                const timePart = String(timeStr).split(' ')[0];
-                const period = (String(timeStr).toLowerCase().match(/(am|pm)/) || [])[0];
-                let [hours, minutes] = timePart.split(':');
-                hours = parseInt(hours);
-                minutes = parseInt(minutes) || 0;
-                
-                if (period === 'pm' && hours < 12) {
-                    hours += 12;
-                }
-                if (period === 'am' && hours === 12) { // Midnight case
-                    hours = 0;
-                }
-                
-                const newDate = new Date(date);
-                newDate.setHours(hours, minutes, 0, 0);
-                return newDate;
-            };
-
-            const currentlyWorking = useMemo(() => {
-                const dayOfWeek = currentDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', weekday: 'long' });
-                const working = { operators: [], managers: [] };
-
-                const checkSchedule = (schedule, role) => {
-                    const todaySchedule = schedule.find(s => s.Days === dayOfWeek);
-                    if (todaySchedule) {
-                        Object.entries(todaySchedule).forEach(([name, timeRange]) => {
-                            if (name !== 'Days' && String(timeRange).toLowerCase() !== 'off') {
-                                const [startStr, endStr] = String(timeRange).split('-');
-                                const startTime = parseTime(startStr, currentDate);
-                                const endTime = parseTime(endStr, currentDate);
-
-                                 if (startTime && endTime && currentDate >= startTime && currentDate <= endTime) {
-                                    if (role === 'operator') working.operators.push(name);
-                                    else working.managers.push(name);
-                                }
-                            }
+                        const forecastResponse = await fetch(forecastUrl);
+                        if (!forecastResponse.ok) throw new Error('Could not fetch forecast.');
+                        const forecastData = await forecastResponse.json();
+                        
+                        const currentForecast = forecastData.properties.periods[0];
+                        setWeather({
+                            temp: `${currentForecast.temperature}°F`,
+                            forecast: currentForecast.shortForecast
                         });
+                    } catch (error) {
+                        console.error("Weather fetch error:", error);
+                        setWeather({ temp: 'N/A', forecast: 'Load failed' });
+                    }
+                };
+                fetchWeather();
+                 const interval = setInterval(fetchWeather, 600000); // Update every 10 minutes
+                 return () => clearInterval(interval);
+            }, []);
+
+            return weather;
+        };
+        
+        // --- Main Components ---
+        
+        function App() {
+            const [role, setRole] = useState(null);
+            const [loading, setLoading] = useState(true);
+            
+            useEffect(() => {
+                const seedDatabase = async () => {
+                    const checkDocRef = fb.doc(fb.db, "app_config", "isSeeded_v6"); // Use a new version flag
+                    const docSnap = await fb.getDoc(checkDocRef);
+
+                    if (docSnap.exists() && docSnap.data().status === true) {
+                        console.log("Database is already seeded.");
+                        setLoading(false);
+                        return;
+                    }
+
+                    console.log("Seeding database for the first time...");
+                    try {
+                        const batch = fb.writeBatch(fb.db);
+                        
+                        batch.set(fb.doc(fb.db, "schedules", "dispatchingSchedule"), {
+                            headers: initialData.dispatchingSchedule.headers,
+                            rowsJSON: JSON.stringify(initialData.dispatchingSchedule.rows)
+                        });
+                        batch.set(fb.doc(fb.db, "schedules", "managementSchedule"), {
+                             headers: initialData.managementSchedule.headers,
+                            rowsJSON: JSON.stringify(initialData.managementSchedule.rows)
+                        });
+                        
+                        initialData.automaticAnswers.forEach(item => batch.set(fb.doc(fb.collection(fb.db, "automaticAnswers")), item));
+                        initialData.services.forEach(item => batch.set(fb.doc(fb.collection(fb.db, "services")), item));
+                        initialData.propertyManagement.forEach(item => batch.set(fb.doc(fb.collection(fb.db, "propertyManagement")), item));
+                        initialData.outstandingPayments.forEach(item => batch.set(fb.doc(fb.collection(fb.db, "outstandingPayments")), item));
+                        
+                        await batch.commit();
+                        await fb.setDoc(checkDocRef, { status: true });
+                        console.log("Database seeded successfully!");
+                    } catch (error) {
+                        console.error("Error seeding database: ", error);
+                    } finally {
+                        setLoading(false);
                     }
                 };
 
-                checkSchedule(schedules.dispatching, 'operator');
-                checkSchedule(schedules.management, 'manager');
-                return working;
-            }, [currentDate, schedules]);
-            
-            const handleCellChange = (scheduleType, rowIndex, colName, value) => {
-              const newSchedules = { ...schedules };
-              newSchedules[scheduleType][rowIndex][colName] = value;
-              setSchedules(newSchedules);
-            };
-
-            const ScheduleTable = ({ title, data, type }) => (
-              <div className="mt-8">
-                <h3 className="text-xl font-semibold text-gray-700 mb-3">{title}</h3>
-                <div className="overflow-x-auto rounded-lg border">
-                  <table className="w-full table-auto text-sm">
-                    <thead>
-                      <tr className="bg-gray-200">
-                        {Object.keys(data[0]).map(key => <th key={key} className="p-3 font-semibold tracking-wide text-left">{key}</th>)}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {data.map((row, rowIndex) => (
-                        <tr key={rowIndex}>
-                          {Object.entries(row).map(([key, value]) => (
-                            <td key={key} className="p-3 text-gray-700" contentEditable={key !== 'Days'} 
-                                onBlur={(e) => handleCellChange(type, rowIndex, key, e.currentTarget.textContent)}
-                                suppressContentEditableWarning={true}>
-                              {value}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            );
-
-            return (
-                <div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                        <div className="text-center bg-gray-100 p-6 rounded-lg">
-                            <p className="text-3xl font-semibold text-gray-800">{timeString}</p>
-                            <p className="text-md text-gray-500">{dateString}</p>
-                        </div>
-                        <div className="bg-blue-50 p-6 rounded-lg">
-                            <h3 className="font-semibold text-blue-800 mb-2">Сейчас на смене:</h3>
-                            <p><strong>Операторы:</strong> {currentlyWorking.operators.join(', ') || 'Нет на смене'}</p>
-                            <p><strong>Менеджеры:</strong> {currentlyWorking.managers.join(', ') || 'Нет на смене'}</p>
-                        </div>
-                    </div>
-                    <ScheduleTable title="График диспетчеров" data={schedules.dispatching} type="dispatching" />
-                    <ScheduleTable title="График менеджеров" data={schedules.management} type="management" />
-                </div>
-            );
-        };
-
-        const AutoAnswers = () => {
-            const { useState } = React;
-            const operators = ["Thomas", "David", "Emma", "Eric", "Nora", "Trinity", "Kenny"];
-            const [selectedOperator, setSelectedOperator] = useState("Thomas");
-            
-            const copyToClipboard = (text) => {
-                navigator.clipboard.writeText(text).then(() => alert('Текст скопирован!'));
-            };
-
-            return (
-                <div>
-                    <div className="mb-6">
-                        <label htmlFor="operator-select" className="block text-sm font-medium text-gray-700 mb-2">Выберите оператора для подстановки в шаблон:</label>
-                        <select id="operator-select" value={selectedOperator} onChange={e => setSelectedOperator(e.target.value)}
-                            className="w-full max-w-xs p-2 border border-gray-300 rounded-md shadow-sm">
-                            {operators.map(op => <option key={op} value={op}>{op}</option>)}
-                        </select>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {autoAnswersData.map((answer, index) => {
-                            const message = answer.Message.replace(/{operatorName}/g, selectedOperator);
-                            return (
-                                <div key={index} className="border rounded-lg p-4 bg-white shadow-sm flex flex-col">
-                                    <h4 className="font-semibold text-gray-800 mb-2">{answer['Service type']}</h4>
-                                    <textarea readOnly value={message} className="text-sm text-gray-600 bg-gray-50 p-3 rounded-md flex-grow resize-none h-64"></textarea>
-                                    <button onClick={() => copyToClipboard(message)} className="flex items-center justify-center gap-2 copy-button mt-3 w-full bg-blue-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-blue-600">
-                                        <Icon name="ClipboardCopy" size={16} /> Копировать
-                                    </button>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            );
-        };
-
-        const ServiceInfo = () => {
-            const { useState, useMemo } = React;
-            const [selectedService, setSelectedService] = useState(null);
-
-            const combinedServiceData = useMemo(() => {
-                return serviceInfoData.map(info => {
-                    const priceInfo = servicesAndPricesData.find(p => p.Service.toLowerCase().includes(info.SERVICE.split(' ')[0].toLowerCase()));
-                    const recommendation = serviceRecommendationsData.find(r => r.Service.toLowerCase().includes(info.SERVICE.split(' ')[0].toLowerCase()));
-                    return {
-                        ...info,
-                        Price: priceInfo ? priceInfo.Price : 'N/A',
-                        Note: priceInfo ? priceInfo.Note : '',
-                        Recommendation: recommendation ? recommendation.Recommendation : 'Нет рекомендаций'
-                    };
-                });
+                seedDatabase();
             }, []);
-
-            const ServiceModal = ({ service, onClose }) => (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl max-h-full overflow-y-auto">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-2xl font-bold text-gray-800">{service.SERVICE}</h3>
-                            <button onClick={onClose} className="text-gray-500 hover:text-gray-800"><Icon name="X" size={24} /></button>
-                        </div>
-                        <div className="space-y-4 text-gray-700">
-                            <div className="p-3 bg-blue-50 rounded-md"><strong>Цена:</strong> {service.Price} {service.Note && `(${service.Note})`}</div>
-                            <div><strong>Когда необходимо:</strong><p className="whitespace-pre-wrap pl-2">{service["WHEN IT NEEDS"]}</p></div>
-                            <div><strong>Частота:</strong><p className="whitespace-pre-wrap pl-2">{service["SERVICE FREQUENCY"]}</p></div>
-                            <div><strong>Методы:</strong><p className="whitespace-pre-wrap pl-2">{service["SERVICE METHODS"]}</p></div>
-                            <div><strong>Этапы:</strong><p className="whitespace-pre-wrap pl-2">{service["SERVICE STAGES"]}</p></div>
-                            <div><strong>Продолжительность:</strong><p className="pl-2">{service["SERVICE DURATION"]}</p></div>
-                            <div className="pt-4 border-t"><strong>Рекомендации:</strong><p className="whitespace-pre-wrap pl-2">{service.Recommendation}</p></div>
-                        </div>
-                    </div>
-                </div>
-            );
-
-            return (
-                <div>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {combinedServiceData.map((service, index) => (
-                            <button key={index} onClick={() => setSelectedService(service)} 
-                                    className="text-center p-4 border rounded-lg bg-white shadow-sm hover:bg-blue-50 hover:shadow-md transition-all h-24 flex items-center justify-center">
-                                <h4 className="font-semibold text-gray-800">{service.SERVICE}</h4>
-                            </button>
-                        ))}
-                    </div>
-                    {selectedService && <ServiceModal service={selectedService} onClose={() => setSelectedService(null)} />}
-                </div>
-            );
-        };
-
-        const PropertyManagement = () => {
-            const { useState } = React;
-            const [list, setList] = useState(propertyManagementData);
-            const [showModal, setShowModal] = useState(false);
             
-            const addCompany = (company) => {
-                setList([...list, company]);
-                setShowModal(false);
-            };
-            
-            const AddModal = () => (
-                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white p-6 rounded-lg w-full max-w-md">
-                        <h3 className="text-xl font-bold mb-4">Добавить новую компанию</h3>
-                        <p>Форма для добавления новой компании.</p>
-                        <button onClick={() => addCompany({Company: 'New Co', Phone: '123-456'})} className="bg-blue-500 text-white px-4 py-2 rounded-md mt-4">Добавить</button>
-                        <button onClick={() => setShowModal(false)} className="ml-2 text-gray-600">Отмена</button>
-                    </div>
-                </div>
-            );
-
-            return (
-                <div>
-                    <button onClick={() => setShowModal(true)} className="bg-green-500 text-white px-4 py-2 rounded-md mb-4 flex items-center gap-2">
-                        <Icon name="PlusCircle" size={18} /> Добавить
-                    </button>
-                    <div className="overflow-x-auto rounded-lg border">
-                        <table className="w-full table-auto text-sm">
-                            <thead>
-                                <tr className="bg-gray-200">
-                                   {Object.keys(list[0]).map(h => <th key={h} className="p-3 font-semibold text-left">{h}</th>)}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {list.map((item, i) => <tr key={i} className="border-b">{Object.values(item).map((val, j) => <td key={j} className="p-3">{val}</td>)}</tr>)}
-                            </tbody>
-                        </table>
-                    </div>
-                    {showModal && <AddModal />}
-                </div>
-            );
-        };
-
-        const OutstandingPayments = () => {
-            const { useState, useMemo } = React;
-            const [payments, setPayments] = useState(outstandingPaymentsData);
-            const [showArchived, setShowArchived] = useState(false);
-
-            const toggleStatus = (id) => {
-                setPayments(payments.map(p => p.id === id ? {...p, status: p.status === 'PAID' ? 'OUTSTANDING' : 'PAID'} : p));
-            };
-
-            const totalDue = useMemo(() => {
-                return payments
-                    .filter(p => p.status === 'OUTSTANDING')
-                    .reduce((sum, p) => sum + parseFloat(p['Amount due']), 0)
-                    .toFixed(2);
-            }, [payments]);
-            
-            const filteredPayments = showArchived ? payments : payments.filter(p => p.status !== 'PAID');
-
-            return (
-                <div>
-                    <div className="flex justify-between items-center mb-4">
-                         <button onClick={() => setShowArchived(!showArchived)} className="bg-gray-200 px-4 py-2 rounded-md">
-                            {showArchived ? 'Скрыть оплаченные' : 'Показать все (включая оплаченные)'}
-                        </button>
-                        <div className="text-xl font-bold text-red-600">К оплате: ${totalDue}</div>
-                    </div>
-                    <div className="overflow-x-auto rounded-lg border">
-                        <table className="w-full table-auto text-sm">
-                            <thead><tr className="bg-gray-200">
-                                <th className="p-3 text-left">Customer</th><th className="p-3 text-left">Amount</th><th className="p-3 text-left">Date</th><th className="p-3 text-left">Status</th>
-                            </tr></thead>
-                            <tbody>
-                                {filteredPayments.map(p => (
-                                    <tr key={p.id} className="border-b">
-                                        <td className="p-3">{p['Customer name']}</td>
-                                        <td className="p-3">${p['Amount due']}</td>
-                                        <td className="p-3">{p['Invoice date']}</td>
-                                        <td className="p-3">
-                                            <button onClick={() => toggleStatus(p.id)} 
-                                                className={`px-3 py-1 text-xs font-semibold rounded-full ${p.status === 'PAID' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                                {p.status}
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            );
-        };
-
-        const AdminFiles = () => {
-            const { useState } = React;
-            const [files, setFiles] = useState([]);
-
-            const handleFileUpload = (event) => {
-                const uploadedFile = event.target.files[0];
-                if (uploadedFile) {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        const newFile = {
-                            name: uploadedFile.name,
-                            url: e.target.result,
-                            type: uploadedFile.type,
-                        };
-                        setFiles([...files, newFile]);
-                    };
-                    reader.readAsDataURL(uploadedFile);
-                }
-            };
-            
-            const removeFile = (fileName) => {
-                setFiles(files.filter(f => f.name !== fileName));
-            };
-
-            return (
-                <div>
-                     <input type="file" onChange={handleFileUpload} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>
-                     <div className="mt-6 space-y-3">
-                        {files.length > 0 ? files.map((file, i) => (
-                            <div key={i} className="flex items-center justify-between p-3 bg-gray-100 rounded-lg">
-                                <span>{file.name}</span>
-                                <div>
-                                    <a href={file.url} download={file.name} className="inline-flex items-center gap-2 text-blue-600 hover:underline mr-4"><Icon name="Download" size={16}/> Скачать</a>
-                                    <button onClick={() => removeFile(file.name)} className="text-red-500 hover:text-red-700"><Icon name="Trash2" size={16}/></button>
-                                </div>
-                            </div>
-                        )) : <p className="text-gray-500">Файлы не загружены.</p>}
-                     </div>
-                </div>
-            );
-        };
-
-        const Browser = () => (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-[70vh]">
-                <div className="border rounded-lg flex flex-col">
-                    <div className="p-2 bg-gray-100 border-b">Браузер 1</div>
-                    <iframe src="https://www.google.com/search?igu=1" className="w-full flex-grow"></iframe>
-                </div>
-                <div className="border rounded-lg flex flex-col">
-                    <div className="p-2 bg-gray-100 border-b">Браузер 2</div>
-                    <iframe src="https://www.google.com/search?igu=1" className="w-full flex-grow"></iframe>
-                </div>
-            </div>
-        );
-
-        // --- ОСНОВНЫЕ КОМПОНЕНТЫ СТРАНИЦ ---
-
-        const OperatorPage = ({ onSwitchRole }) => {
-            const { useState } = React;
-            const [activeTab, setActiveTab] = useState('dashboard');
-            const [schedules, setSchedules] = useState({ dispatching: JSON.parse(JSON.stringify(dispatchingScheduleData)), management: JSON.parse(JSON.stringify(managementScheduleData)) });
-            const tabs = {
-                dashboard: <Dashboard schedules={schedules} setSchedules={setSchedules} />,
-                answers: <AutoAnswers />,
-                service_info: <ServiceInfo />,
-                pm_list: <PropertyManagement />,
-                browser: <Browser />
-            };
-            return (
-                <AppLayout role="Оператор" onSwitchRole={onSwitchRole} activeTab={activeTab} setActiveTab={setActiveTab} tabs={
-                    {'dashboard': 'Dashboard', 'answers': 'Automatic Answers', 'service_info': 'Service Info & Prices', 'pm_list': 'Property Management', 'browser': 'Browser'}
-                }>
-                    {tabs[activeTab]}
-                </AppLayout>
-            );
-        };
-
-        const ManagementPage = ({ onSwitchRole }) => {
-            const { useState } = React;
-            const [activeTab, setActiveTab] = useState('dashboard');
-             const [schedules, setSchedules] = useState({ dispatching: JSON.parse(JSON.stringify(dispatchingScheduleData)), management: JSON.parse(JSON.stringify(managementScheduleData)) });
-            const tabs = {
-                dashboard: <Dashboard schedules={schedules} setSchedules={setSchedules} />,
-                pm_list: <PropertyManagement />,
-                payments: <OutstandingPayments />,
-                files: <AdminFiles />,
-                browser: <Browser />
-            };
-            return (
-                <AppLayout role="Менеджер" onSwitchRole={onSwitchRole} activeTab={activeTab} setActiveTab={setActiveTab} tabs={
-                     {'dashboard': 'Dashboard', 'pm_list': 'Property Management', 'payments': 'Outstanding Payments', 'files': 'Administrative Files', 'browser': 'Browser'}
-                }>
-                    {tabs[activeTab]}
-                </AppLayout>
-            );
-        };
-
-        const AppLayout = ({ role, onSwitchRole, children, activeTab, setActiveTab, tabs }) => (
-            <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-lg">
-                <header className="p-4 border-b border-gray-200 bg-gray-50 rounded-t-xl flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                         <img src="https://thebayservices.com/wp-content/uploads/2022/07/bay-services-logo-300x100.png" alt="Logo" className="h-12"/>
-                        <div>
-                            <h1 className="text-2xl font-bold text-gray-800">The Bay Services</h1>
-                            <p className="text-md text-gray-500">Dashboard</p>
-                        </div>
-                    </div>
-                    <button onClick={() => onSwitchRole(null)} className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-100">
-                        Сменить роль ({role})
-                    </button>
-                </header>
-                <nav className="p-4 border-b border-gray-200">
-                    <div className="flex flex-wrap items-center gap-2">
-                        {Object.entries(tabs).map(([key, title]) => (
-                            <button key={key} onClick={() => setActiveTab(key)} 
-                                    className={`tab-button text-sm font-medium border-b-2 px-4 py-2 rounded-md transition-all ${activeTab === key ? 'border-blue-500 text-blue-600 bg-blue-50' : 'border-transparent text-gray-600 hover:bg-gray-100'}`}>
-                                {title}
-                            </button>
-                        ))}
-                    </div>
-                </nav>
-                <main className="p-6">{children}</main>
-            </div>
-        );
-
-
-        function App() {
-            const { useState } = React;
-            const [role, setRole] = useState(null);
+            if (loading) {
+                return <div className="flex items-center justify-center h-screen"><div className="text-xl font-semibold">Loading & Initializing...</div></div>;
+            }
 
             if (!role) {
                 return <RoleSelectionScreen onSelectRole={setRole} />;
             }
+            
+            const PageComponent = role === 'operator' ? OperatorPage : ManagementPage;
+            
+            return (
+                 <div className="min-h-screen bg-gray-100 p-4 sm:p-6 lg:p-8">
+                    <PageComponent onSwitchRole={() => setRole(null)} currentRole={role} />
+                </div>
+            );
+        }
+        
+        function RoleSelectionScreen({ onSelectRole }) {
+            return (
+                <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
+                    <img src="https://thebayservices.com/wp-content/uploads/2022/07/bay-services-logo-300x100.png" alt="The Bay Services Logo" className="mb-8 h-16"/>
+                    <div className="w-full max-w-sm p-8 space-y-6 bg-white rounded-lg shadow-lg">
+                        <h2 className="text-2xl font-bold text-center text-gray-800">Select Your Role</h2>
+                        <div className="flex flex-col space-y-4">
+                            <button onClick={() => onSelectRole('operator')} className="w-full px-4 py-3 text-lg font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700">
+                                👤 Operator
+                            </button>
+                            <button onClick={() => onSelectRole('management')} className="w-full px-4 py-3 text-lg font-semibold text-white bg-gray-700 rounded-lg hover:bg-gray-800">
+                                💼 Management
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+        
+        function OperatorPage({ onSwitchRole, currentRole }) {
+            const [activeTab, setActiveTab] = useState('dashboard');
+            const tabs = {
+                dashboard: 'Dashboard',
+                automaticAnswers: 'Automatic Answers',
+                serviceInfo: 'Service Info',
+                propertyManagement: 'Property Management'
+            };
+            
+            return (
+                <Layout onSwitchRole={onSwitchRole} currentRole={currentRole} activeTab={activeTab} setActiveTab={setActiveTab} tabs={tabs}>
+                    {activeTab === 'dashboard' && <Dashboard />}
+                    {activeTab === 'automaticAnswers' && <AutomaticAnswers />}
+                    {activeTab === 'serviceInfo' && <ServiceInfo readonly={true} />}
+                    {activeTab === 'propertyManagement' && <PropertyManagement readonly={false}/>}
+                </Layout>
+            );
+        }
+        
+        function ManagementPage({ onSwitchRole, currentRole }) {
+            const [activeTab, setActiveTab] = useState('dashboard');
+             const tabs = {
+                dashboard: 'Dashboard',
+                propertyManagement: 'Property Management',
+                outstandingPayments: 'Outstanding Payments',
+                serviceInfo: 'Service Info',
+                administrativeFiles: 'Administrative Files'
+            };
+            
+            return (
+                 <Layout onSwitchRole={onSwitchRole} currentRole={currentRole} activeTab={activeTab} setActiveTab={setActiveTab} tabs={tabs}>
+                    {activeTab === 'dashboard' && <Dashboard />}
+                    {activeTab === 'propertyManagement' && <PropertyManagement readonly={false}/>}
+                    {activeTab === 'outstandingPayments' && <OutstandingPayments />}
+                    {activeTab === 'serviceInfo' && <ServiceInfo readonly={false} />}
+                    {activeTab === 'administrativeFiles' && <AdminFiles />}
+                </Layout>
+            );
+        }
+        
+        function Layout({ children, onSwitchRole, currentRole, activeTab, setActiveTab, tabs }) {
+             const caliTime = useCaliforniaTime();
+             const weather = useWeather();
+             const [onShift, setOnShift] = useState({ operators: "...", managers: "..."});
+             
+             const getOnShiftStaff = useCallback(() => {
+                const now = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" }));
+                const dayOfWeek = now.toLocaleString('en-US', { weekday: 'long' });
+
+                const currentTime = now.getHours() + now.getMinutes() / 60;
+
+                const parseTime = (timeStr) => {
+                    const match = timeStr.match(/(\d+):?(\d+)?(AM|PM)/i);
+                    if (!match) return null;
+                    let [_, hour, minute, period] = match;
+                    hour = parseInt(hour);
+                    minute = minute ? parseInt(minute) : 0;
+                    period = period.toUpperCase();
+
+                    if (period === 'PM' && hour !== 12) hour += 12;
+                    if (period === 'AM' && hour === 12) hour = 0;
+                    return hour + minute / 60;
+                };
+
+                const findOnShift = (schedule) => {
+                    if(!schedule || !schedule.rows || !schedule.headers) return "No Data";
+                    const todaySchedule = schedule.rows.find(row => row[0] === dayOfWeek);
+                    if (!todaySchedule) return "No Schedule";
+
+                    let onShiftEmployees = [];
+                    schedule.headers.slice(1).forEach((employee, index) => {
+                        const timeSlot = todaySchedule[index + 1];
+                        if (timeSlot && timeSlot.toLowerCase() !== 'off') {
+                             try {
+                                const [startStr, endStr] = timeSlot.split('-');
+                                const startTime = parseTime(startStr);
+                                const endTime = parseTime(endStr);
+                                
+                                if (startTime !== null && endTime !== null) {
+                                    if ( (startTime <= endTime && currentTime >= startTime && currentTime < endTime) ||
+                                         (startTime > endTime && (currentTime >= startTime || currentTime < endTime) ) ) {
+                                       onShiftEmployees.push(employee.split('/')[0]);
+                                    }
+                                }
+                             } catch(e) { console.error("Error parsing time slot:", timeSlot, e); }
+                        }
+                    });
+                    return onShiftEmployees.length > 0 ? onShiftEmployees.join(', ') : "Nobody";
+                };
+                 
+                setOnShift({
+                    operators: findOnShift(initialData.dispatchingSchedule),
+                    managers: findOnShift(initialData.managementSchedule)
+                });
+             }, []);
+
+             useEffect(() => {
+                getOnShiftStaff();
+                const interval = setInterval(getOnShiftStaff, 60000);
+                return () => clearInterval(interval);
+             }, [getOnShiftStaff]);
+            
+            return (
+                <div className="bg-white rounded-xl shadow-2xl overflow-hidden">
+                    <header className="p-4 border-b border-gray-200 flex flex-wrap justify-between items-center bg-gray-50">
+                        <img src="https://thebayservices.com/wp-content/uploads/2022/07/bay-services-logo-300x100.png" alt="Logo" className="h-12" />
+                        <div className="text-center my-2 sm:my-0">
+                            <div className="font-semibold text-gray-700">{caliTime}</div>
+                            <div className="text-sm text-gray-500">Santa Clara, CA: {weather.temp}, {weather.forecast}</div>
+                            <div className="text-xs text-gray-600 mt-1">
+                                <span className="font-bold">On Shift:</span>
+                                <span className="text-blue-600"> Ops: {onShift.operators}</span> | 
+                                <span className="text-green-600"> Mgmt: {onShift.managers}</span>
+                            </div>
+                        </div>
+                        <button onClick={onSwitchRole} className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700">
+                            Switch Role ({currentRole})
+                        </button>
+                    </header>
+                    <nav className="p-2 border-b border-gray-200 bg-white">
+                        <div className="flex flex-wrap items-center gap-2">
+                             {Object.entries(tabs).map(([key, title]) => (
+                                <button key={key} onClick={() => setActiveTab(key)} 
+                                        className={`tab-button text-sm font-medium border-b-2 px-4 py-2 rounded-t-md transition-all ${activeTab === key ? 'active' : 'border-transparent text-gray-500 hover:bg-gray-100 hover:text-gray-700'}`}>
+                                    {title}
+                                </button>
+                            ))}
+                        </div>
+                    </nav>
+                    <main className="p-6 bg-gray-50 min-h-[70vh]">{children}</main>
+                </div>
+            );
+        }
+
+        // --- Tab Components ---
+        function Dashboard() {
+            return (
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-800 mb-6">Work Schedules</h2>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <ScheduleTable scheduleId="dispatchingSchedule" title="Operator Schedule" />
+                        <ScheduleTable scheduleId="managementSchedule" title="Management Schedule" />
+                    </div>
+                </div>
+            );
+        }
+
+        function AutomaticAnswers() {
+            const [answers, setAnswers] = useState([]);
+            const [selectedName, setSelectedName] = useState('Thomas');
+            const [showModal, setShowModal] = useState(false);
+            const [newAnswer, setNewAnswer] = useState({title: '', text: ''});
+            const operators = ['Thomas', 'David', 'Emma', 'Eric', 'Nora', 'Trinity', 'Kenny'];
+            
+            useEffect(() => {
+                const answersCol = fb.collection(fb.db, "automaticAnswers");
+                const unsubscribe = fb.onSnapshot(answersCol, (snapshot) => {
+                    const fetchedAnswers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    setAnswers(fetchedAnswers);
+                });
+                return () => unsubscribe();
+            }, []);
+
+            const handleAddAnswer = async (e) => {
+                e.preventDefault();
+                if (!newAnswer.title || !newAnswer.text) return;
+                await fb.addDoc(fb.collection(fb.db, "automaticAnswers"), newAnswer);
+                setNewAnswer({title: '', text: ''});
+                setShowModal(false);
+            };
+
+            const copyToClipboard = (text) => {
+                const finalText = text.replace(/\[NAME\]/g, selectedName);
+                navigator.clipboard.writeText(finalText).then(() => {
+                    alert('Text copied!');
+                }).catch(err => {
+                    console.error('Failed to copy text: ', err);
+                    alert('Error while copying.');
+                });
+            };
 
             return (
-                <div className="p-4 md:p-8">
-                    {role === 'operator' && <OperatorPage onSwitchRole={setRole} />}
-                    {role === 'management' && <ManagementPage onSwitchRole={setRole} />}
+                 <div>
+                    <div className="flex justify-between items-center mb-6">
+                        <div className="flex items-center">
+                           <label htmlFor="operator-select" className="mr-4 font-semibold text-gray-700">Operator Name:</label>
+                            <select id="operator-select" value={selectedName} onChange={e => setSelectedName(e.target.value)}
+                                className="p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                                {operators.map(name => <option key={name} value={name}>{name}</option>)}
+                            </select>
+                        </div>
+                        <button onClick={() => setShowModal(true)} className="px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700">Add New Answer</button>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                         {answers.length === 0 && <p>Loading answers...</p>}
+                        {answers.map(answer => (
+                            <div key={answer.id} className="bg-white p-6 rounded-lg shadow-md flex flex-col">
+                                <h3 className="text-lg font-bold text-gray-800 mb-3">{answer.title}</h3>
+                                <p className="text-gray-600 whitespace-pre-wrap flex-grow text-sm">
+                                    {answer.text.replace(/\[NAME\]/g, selectedName)}
+                                </p>
+                                <button onClick={() => copyToClipboard(answer.text)}
+                                    className="mt-4 self-start px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
+                                    Copy
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+
+                    {showModal && (
+                        <Modal onClose={() => setShowModal(false)}>
+                            <h3 className="text-lg font-bold mb-4">Add New Automatic Answer</h3>
+                            <form onSubmit={handleAddAnswer}>
+                                <div className="space-y-4">
+                                     <input type="text" placeholder="Title" value={newAnswer.title} onChange={e => setNewAnswer({...newAnswer, title: e.target.value})} className="w-full p-2 border rounded" required/>
+                                     <textarea placeholder="Text content... Use [NAME] for the operator's name." value={newAnswer.text} onChange={e => setNewAnswer({...newAnswer, text: e.target.value})} className="w-full p-2 border rounded h-32" required />
+                                </div>
+                                <div className="mt-6 flex justify-end gap-4">
+                                    <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 bg-gray-200 rounded">Cancel</button>
+                                    <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">Save</button>
+                                </div>
+                            </form>
+                        </Modal>
+                    )}
                 </div>
+            );
+        }
+        
+        function ServiceInfo({ readonly }) {
+            const [services, setServices] = useState([]);
+            const [selectedService, setSelectedService] = useState(null);
+            const [showModal, setShowModal] = useState(false);
+            const [newService, setNewService] = useState({ name: '', what: '', signs: '', process: '', price: '', duration: '', frequency: '', note: '' });
+
+            useEffect(() => {
+                const servicesCol = fb.collection(fb.db, "services");
+                const unsubscribe = fb.onSnapshot(servicesCol, (snapshot) => {
+                    const fetchedServices = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    setServices(fetchedServices);
+                });
+                return () => unsubscribe();
+            }, []);
+
+            const handleAddService = async (e) => {
+                e.preventDefault();
+                if (!newService.name) return;
+                await fb.addDoc(fb.collection(fb.db, "services"), newService);
+                setNewService({ name: '', what: '', signs: '', process: '', price: '', duration: '', frequency: '', note: '' });
+                setShowModal(false);
+            };
+            
+            const handleDeleteService = async (id) => {
+                if (window.confirm("Are you sure you want to delete this service permanently?")) {
+                    try {
+                        await fb.deleteDoc(fb.doc(fb.db, "services", id));
+                        setSelectedService(null); // Close the modal
+                    } catch (error) {
+                        console.error("Error deleting service: ", error);
+                        alert("Failed to delete service.");
+                    }
+                }
+            };
+
+            const InfoItem = ({label, value}) => (
+                <p><strong className="font-semibold text-gray-900">{label}:</strong> {value}</p>
+            );
+
+            return (
+                <div>
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-2xl font-bold text-gray-800">Service Information</h2>
+                        {!readonly && (
+                             <button onClick={() => setShowModal(true)} className="px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700">Add New Service</button>
+                        )}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                         {services.length === 0 && <p>Loading services...</p>}
+                        {services.map(service => (
+                            <div key={service.id} onClick={() => setSelectedService(service)}
+                                className="bg-white p-6 rounded-lg shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all transform flex flex-col justify-between">
+                                <h3 className="text-xl font-bold text-gray-900">{service.name}</h3>
+                                <p className="text-blue-600 font-semibold mt-2">{service.price}</p>
+                            </div>
+                        ))}
+                    </div>
+                    {selectedService && (
+                        <Modal onClose={() => setSelectedService(null)}>
+                            <h2 className="text-2xl font-bold mb-4">{selectedService.name}</h2>
+                            <div className="space-y-3 text-gray-700">
+                                <InfoItem label="What We Do" value={selectedService.what} />
+                                <InfoItem label="Signs You Need This" value={selectedService.signs} />
+                                <InfoItem label="Our Process" value={selectedService.process} />
+                                <InfoItem label="Price" value={selectedService.price} />
+                                <InfoItem label="Duration" value={selectedService.duration} />
+                                <InfoItem label="Frequency" value={selectedService.frequency} />
+                                <InfoItem label="Note" value={selectedService.note} />
+                            </div>
+                            {!readonly && (
+                                <div className="mt-6 pt-4 border-t flex justify-end">
+                                    <button
+                                        onClick={() => handleDeleteService(selectedService.id)}
+                                        className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700"
+                                    >
+                                        Delete Service
+                                    </button>
+                                </div>
+                            )}
+                        </Modal>
+                    )}
+                    {showModal && (
+                        <Modal onClose={() => setShowModal(false)}>
+                            <h3 className="text-lg font-bold mb-4">Add New Service</h3>
+                            <form onSubmit={handleAddService} className="space-y-4">
+                                 <input type="text" placeholder="Service Name" value={newService.name} onChange={e => setNewService({...newService, name: e.target.value})} className="w-full p-2 border rounded" required/>
+                                 <textarea placeholder="What we do..." value={newService.what} onChange={e => setNewService({...newService, what: e.target.value})} className="w-full p-2 border rounded h-24" />
+                                 <textarea placeholder="Signs you need this..." value={newService.signs} onChange={e => setNewService({...newService, signs: e.target.value})} className="w-full p-2 border rounded h-24" />
+                                 <textarea placeholder="Our process..." value={newService.process} onChange={e => setNewService({...newService, process: e.target.value})} className="w-full p-2 border rounded h-24" />
+                                 <input type="text" placeholder="Price" value={newService.price} onChange={e => setNewService({...newService, price: e.target.value})} className="w-full p-2 border rounded" />
+                                 <input type="text" placeholder="Duration" value={newService.duration} onChange={e => setNewService({...newService, duration: e.target.value})} className="w-full p-2 border rounded" />
+                                 <input type="text" placeholder="Frequency" value={newService.frequency} onChange={e => setNewService({...newService, frequency: e.target.value})} className="w-full p-2 border rounded" />
+                                 <input type="text" placeholder="Note" value={newService.note} onChange={e => setNewService({...newService, note: e.target.value})} className="w-full p-2 border rounded" />
+                                <div className="mt-6 flex justify-end gap-4">
+                                    <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 bg-gray-200 rounded">Cancel</button>
+                                    <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">Save</button>
+                                </div>
+                            </form>
+                        </Modal>
+                    )}
+                </div>
+            );
+        }
+
+        function PropertyManagement({ readonly }) {
+            const [properties, setProperties] = useState([]);
+            const [showModal, setShowModal] = useState(false);
+            const [newProperty, setNewProperty] = useState({ Company: '', Phone: '', Email: '', Representative: '', "Invoicing Email": ""});
+            const [searchTerm, setSearchTerm] = useState("");
+
+             useEffect(() => {
+                const propertiesCol = fb.collection(fb.db, "propertyManagement");
+                const unsubscribe = fb.onSnapshot(propertiesCol, (snapshot) => {
+                    const fetchedData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    setProperties(fetchedData);
+                });
+                return () => unsubscribe();
+            }, []);
+            
+            const handleAddProperty = async (e) => {
+                e.preventDefault();
+                if (!newProperty.Company) return;
+                await fb.addDoc(fb.collection(fb.db, "propertyManagement"), newProperty);
+                setNewProperty({ Company: '', Phone: '', Email: '', Representative: '', "Invoicing Email": ""});
+                setShowModal(false);
+            };
+
+            const handleUpdate = async (id, field, value) => {
+                const docRef = fb.doc(fb.db, "propertyManagement", id);
+                await fb.updateDoc(docRef, { [field]: value });
+            };
+
+            const filteredProperties = properties.filter(prop => 
+                (prop.Company && prop.Company.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                (prop.Representative && prop.Representative.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                (prop.Email && prop.Email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                (prop["Invoicing Email"] && prop["Invoicing Email"].toLowerCase().includes(searchTerm.toLowerCase()))
+            );
+            
+            return (
+                 <div>
+                    <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
+                        <h2 className="text-2xl font-bold text-gray-800">Property Management</h2>
+                        <div className="flex items-center gap-4">
+                           <input 
+                                type="text" 
+                                placeholder="Search..." 
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="px-4 py-2 border border-gray-300 rounded-lg"
+                            />
+                           <button onClick={() => setShowModal(true)} className="px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700">Add New Company</button>
+                        </div>
+                    </div>
+                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                        {filteredProperties.map(prop => (
+                            <div key={prop.id} className="bg-white rounded-lg shadow-md p-6 space-y-3">
+                                <h3 className="text-xl font-bold text-gray-900"><EditableCell value={prop.Company} onSave={val => handleUpdate(prop.id, 'Company', val)} readonly={readonly} /></h3>
+                                <p className="text-sm text-gray-600"><strong>Rep:</strong> <EditableCell value={prop.Representative} onSave={val => handleUpdate(prop.id, 'Representative', val)} readonly={readonly} /></p>
+                                <p className="text-sm text-gray-600"><strong>Phone:</strong> <EditableCell value={prop.Phone} onSave={val => handleUpdate(prop.id, 'Phone', val)} readonly={readonly} /></p>
+                                <p className="text-sm text-gray-600"><strong>Email:</strong> <EditableCell value={prop.Email} onSave={val => handleUpdate(prop.id, 'Email', val)} readonly={readonly} /></p>
+                                <p className="text-sm text-gray-600"><strong>Invoice Email:</strong> <EditableCell value={prop["Invoicing Email"]} onSave={val => handleUpdate(prop.id, 'Invoicing Email', val)} readonly={readonly} /></p>
+                            </div>
+                        ))}
+                    </div>
+
+                    {showModal && (
+                        <Modal onClose={() => setShowModal(false)}>
+                            <h3 className="text-lg font-bold mb-4">Add New Company</h3>
+                            <form onSubmit={handleAddProperty} className="space-y-4">
+                                     <input type="text" placeholder="Company Name" value={newProperty.Company} onChange={e => setNewProperty({...newProperty, Company: e.target.value})} className="w-full p-2 border rounded" required/>
+                                     <input type="text" placeholder="Representative" value={newProperty.Representative} onChange={e => setNewProperty({...newProperty, Representative: e.target.value})} className="w-full p-2 border rounded" />
+                                     <input type="tel" placeholder="Phone" value={newProperty.Phone} onChange={e => setNewProperty({...newProperty, Phone: e.target.value})} className="w-full p-2 border rounded" />
+                                     <input type="email" placeholder="Contact Email" value={newProperty.Email} onChange={e => setNewProperty({...newProperty, Email: e.target.value})} className="w-full p-2 border rounded" />
+                                     <input type="email" placeholder="Invoicing Email" value={newProperty["Invoicing Email"]} onChange={e => setNewProperty({...newProperty, "Invoicing Email": e.target.value})} className="w-full p-2 border rounded" />
+                                <div className="mt-6 flex justify-end gap-4">
+                                    <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 bg-gray-200 rounded">Cancel</button>
+                                    <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">Save</button>
+                                </div>
+                            </form>
+                        </Modal>
+                    )}
+                </div>
+            )
+        }
+        
+        function OutstandingPayments() {
+            const [payments, setPayments] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [showModal, setShowModal] = useState(false);
+            const [newPayment, setNewPayment] = useState({ CUSTOMER: '', AMMOUNT: '', 'INVOICE No': '', STATUS: 'OUTSTANDING', 'INVOICE DATE': '', 'DUE PERIOD': '' });
+            const [showArchived, setShowArchived] = useState(false);
+
+            useEffect(() => {
+                setLoading(true);
+                const status = showArchived ? 'PAID' : 'OUTSTANDING';
+                const paymentsCol = fb.query(fb.collection(fb.db, "outstandingPayments"), fb.where("STATUS", "==", status));
+                const unsubscribe = fb.onSnapshot(paymentsCol, (snapshot) => {
+                    const fetchedData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    setPayments(fetchedData);
+                    setLoading(false);
+                }, (error) => {
+                     console.error("Error fetching payments:", error);
+                     setLoading(false);
+                });
+                return () => unsubscribe();
+            }, [showArchived]);
+
+            const handleUpdate = async (id, field, value) => {
+                const docRef = fb.doc(fb.db, "outstandingPayments", id);
+                await fb.updateDoc(docRef, { [field]: value });
+            };
+
+            const handleAdd = async (e) => {
+                e.preventDefault();
+                if(!newPayment.CUSTOMER || !newPayment.AMMOUNT) return;
+                const paymentToAdd = {
+                    ...newPayment,
+                    AMMOUNT: parseFloat(newPayment.AMMOUNT),
+                    'DUE PERIOD': parseInt(newPayment['DUE PERIOD'], 10) || 0
+                }
+                await fb.addDoc(fb.collection(fb.db, "outstandingPayments"), paymentToAdd);
+                setNewPayment({ CUSTOMER: '', AMMOUNT: '', 'INVOICE No': '', STATUS: 'OUTSTANDING', 'INVOICE DATE': '', 'DUE PERIOD': '' });
+                setShowModal(false);
+            };
+
+            const totalOutstanding = payments
+                .filter(p => p.STATUS === 'OUTSTANDING')
+                .reduce((sum, p) => sum + (Number(p.AMMOUNT) || 0), 0);
+
+            return (
+                <div>
+                    <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
+                        <h2 className="text-2xl font-bold text-gray-800">Outstanding Payments</h2>
+                         <div className="flex items-center gap-4">
+                            <button onClick={() => setShowModal(true)} className="px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700">Add New</button>
+                             <button onClick={() => setShowArchived(!showArchived)} className="px-4 py-2 text-white bg-gray-500 rounded-lg hover:bg-gray-600">
+                                {showArchived ? 'Show Outstanding' : 'Show Archive (Paid)'}
+                            </button>
+                         </div>
+                    </div>
+                    {!showArchived && <div className="mb-4 text-lg font-semibold">Total Outstanding: <span className="text-red-600">${totalOutstanding.toFixed(2)}</span></div>}
+                     <div className="overflow-x-auto bg-white rounded-lg shadow">
+                         <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    {['CUSTOMER', 'AMOUNT', 'INVOICE No', 'INVOICE DATE', 'DUE PERIOD', 'STATUS'].map(h => <th key={h} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{h}</th>)}
+                                </tr>
+                             </thead>
+                             <tbody className="bg-white divide-y divide-gray-200">
+                                {loading && (<tr><td colSpan="6" className="text-center py-4">Loading payments...</td></tr>)}
+                                {!loading && payments.map(p => (
+                                    <tr key={p.id} className="hover:bg-gray-50 odd:bg-white even:bg-gray-50">
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm"><EditableCell value={p.CUSTOMER} onSave={val => handleUpdate(p.id, 'CUSTOMER', val)} /></td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm">$<EditableCell type="number" value={p.AMMOUNT} onSave={val => handleUpdate(p.id, 'AMMOUNT', parseFloat(val))} /></td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm"><EditableCell value={p['INVOICE No']} onSave={val => handleUpdate(p.id, 'INVOICE No', val)} /></td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm"><EditableCell type="date" value={p['INVOICE DATE']} onSave={val => handleUpdate(p.id, 'INVOICE DATE', val)} /></td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm"><EditableCell type="number" value={p['DUE PERIOD']} onSave={val => handleUpdate(p.id, 'DUE PERIOD', parseInt(val, 10))} /> days</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                            <select value={p.STATUS} onChange={e => handleUpdate(p.id, 'STATUS', e.target.value)}
+                                                className={`p-2 rounded border-transparent ${p.STATUS === 'PAID' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                                <option value="OUTSTANDING">OUTSTANDING</option>
+                                                <option value="PAID">PAID</option>
+                                            </select>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                         </table>
+                     </div>
+                      {showModal && (
+                        <Modal onClose={() => setShowModal(false)}>
+                            <h3 className="text-lg font-bold mb-4">Add New Payment</h3>
+                            <form onSubmit={handleAdd} className="space-y-4">
+                                     <input type="text" placeholder="Customer" value={newPayment.CUSTOMER} onChange={e => setNewPayment({...newPayment, CUSTOMER: e.target.value})} className="w-full p-2 border rounded" required/>
+                                     <input type="number" step="0.01" placeholder="Amount" value={newPayment.AMMOUNT} onChange={e => setNewPayment({...newPayment, AMMOUNT: e.target.value})} className="w-full p-2 border rounded" required />
+                                     <input type="text" placeholder="Invoice No" value={newPayment['INVOICE No']} onChange={e => setNewPayment({...newPayment, 'INVOICE No': e.target.value})} className="w-full p-2 border rounded" />
+                                     <input type="date" placeholder="Invoice Date" value={newPayment['INVOICE DATE']} onChange={e => setNewPayment({...newPayment, 'INVOICE DATE': e.target.value})} className="w-full p-2 border rounded" />
+                                     <input type="number" placeholder="Due Period (days)" value={newPayment['DUE PERIOD']} onChange={e => setNewPayment({...newPayment, 'DUE PERIOD': e.target.value})} className="w-full p-2 border rounded" />
+                                <div className="mt-6 flex justify-end gap-4">
+                                    <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 bg-gray-200 rounded">Cancel</button>
+                                    <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">Save</button>
+                                </div>
+                            </form>
+                        </Modal>
+                    )}
+                </div>
+            );
+        }
+
+        function AdminFiles() {
+            const [files, setFiles] = useState([]);
+            const [uploading, setUploading] = useState(false);
+
+            useEffect(() => {
+                const filesCol = fb.collection(fb.db, "administrativeFiles");
+                const unsubscribe = fb.onSnapshot(filesCol, (snapshot) => {
+                    const fetchedFiles = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    setFiles(fetchedFiles);
+                });
+                return () => unsubscribe();
+            }, []);
+
+            const handleUpload = (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                if (file.size > 1024 * 1024) {
+                    alert("File is too large. The maximum size is 1MB.");
+                    return;
+                }
+
+                setUploading(true);
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = async () => {
+                    try {
+                        await fb.addDoc(fb.collection(fb.db, "administrativeFiles"), {
+                            name: file.name,
+                            type: file.type,
+                            dataUrl: reader.result
+                        });
+                        alert("File uploaded successfully!");
+                    } catch (error) {
+                        console.error("File upload error: ", error);
+                        alert("Failed to upload file.");
+                    } finally {
+                        setUploading(false);
+                    }
+                };
+                reader.onerror = (error) => {
+                    console.error("File reading error: ", error);
+                    alert("Failed to read file.");
+                    setUploading(false);
+                };
+            };
+            
+            const handleDelete = async (id, name) => {
+                 if (window.confirm(`Are you sure you want to delete the file "${name}"?`)) {
+                    await fb.deleteDoc(fb.doc(fb.db, "administrativeFiles", id));
+                 }
+            }
+
+            return (
+                 <div>
+                    <h2 className="text-2xl font-bold text-gray-800 mb-6">Administrative Files</h2>
+                    <div className="mb-6 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded" role="alert">
+                      <p className="font-bold">Important Note</p>
+                      <p>File storage is handled by Firestore to stay on the free plan. The maximum file size is 1MB.</p>
+                    </div>
+                    <div className="mb-6">
+                        <label className="block mb-2 text-sm font-medium text-gray-900" htmlFor="file_input">Upload File</label>
+                        <input onChange={handleUpload} disabled={uploading}
+                            className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none"
+                            id="file_input" type="file" />
+                         {uploading && <p className="mt-2 text-sm text-blue-600">Uploading...</p>}
+                    </div>
+
+                    <div className="bg-white p-4 rounded-lg shadow">
+                         <h3 className="font-semibold mb-4">Uploaded Files:</h3>
+                         <ul className="space-y-2">
+                             {files.map(file => (
+                                 <li key={file.id} className="flex justify-between items-center p-2 rounded hover:bg-gray-100">
+                                     <span className="text-gray-700">{file.name}</span>
+                                     <div className="flex items-center gap-4">
+                                        <a href={file.dataUrl} download={file.name} className="px-3 py-1 text-sm text-white bg-blue-500 rounded hover:bg-blue-600">
+                                             Download
+                                        </a>
+                                        <button onClick={() => handleDelete(file.id, file.name)} className="px-3 py-1 text-sm text-white bg-red-500 rounded hover:bg-red-600">Delete</button>
+                                     </div>
+                                 </li>
+                             ))}
+                         </ul>
+                         {files.length === 0 && <p className="text-gray-500">No files found.</p>}
+                    </div>
+                 </div>
+            );
+        }
+        
+        // --- Utility Components ---
+        function Modal({ children, onClose }) {
+            return (
+                <div className="modal-backdrop" onClick={onClose}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()}>
+                        <button onClick={onClose} className="absolute top-3 right-3 text-gray-400 hover:text-gray-800 text-2xl leading-none">&times;</button>
+                        {children}
+                    </div>
+                </div>
+            );
+        }
+
+        function EditableCell({ value, onSave, type = 'text', readonly = false }) {
+            const [editing, setEditing] = useState(false);
+            const [currentValue, setCurrentValue] = useState(value);
+
+            const handleSave = () => {
+                onSave(currentValue);
+                setEditing(false);
+            };
+
+            if (readonly) {
+                return <span>{value || "-"}</span>;
+            }
+            
+            if (type === 'date' && editing) {
+                const dateValue = currentValue ? new Date(currentValue).toISOString().split('T')[0] : '';
+                 return (
+                    <input
+                        type="date"
+                        value={dateValue}
+                        onChange={(e) => setCurrentValue(new Date(e.target.value).toLocaleDateString('en-US'))}
+                        onBlur={handleSave}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+                        autoFocus
+                        className="w-full p-1 border rounded bg-yellow-50"
+                    />
+                );
+            }
+
+            if (editing) {
+                return (
+                    <input
+                        type={type}
+                        value={currentValue}
+                        onChange={(e) => setCurrentValue(e.target.value)}
+                        onBlur={handleSave}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+                        autoFocus
+                        className="w-full p-1 border rounded bg-yellow-50"
+                    />
+                );
+            }
+            return <span onClick={() => setEditing(true)} className="cursor-pointer hover:bg-yellow-100 p-1 rounded">{value || "-"}</span>;
+        }
+
+        function ScheduleTable({ scheduleId, title }) {
+            const [scheduleData, setScheduleData] = useState({ headers: [], rows: [] });
+
+            useEffect(() => {
+                const scheduleRef = fb.doc(fb.db, "schedules", scheduleId);
+                const unsubscribe = fb.onSnapshot(scheduleRef, (doc) => {
+                    if (doc.exists()) {
+                        const data = doc.data();
+                        try {
+                            const rows = data.rowsJSON ? JSON.parse(data.rowsJSON) : (data.rows || []);
+                            setScheduleData({ headers: data.headers || [], rows: rows });
+                        } catch (e) { console.error("Failed to parse schedule rows:", e); }
+                    }
+                });
+                return () => unsubscribe();
+            }, [scheduleId]);
+            
+            const handleCellChange = (rowIndex, colIndex, value) => {
+                const newRows = [...scheduleData.rows];
+                newRows[rowIndex][colIndex] = value;
+                const scheduleRef = fb.doc(fb.db, "schedules", scheduleId);
+                fb.updateDoc(scheduleRef, { rowsJSON: JSON.stringify(newRows) });
+            };
+
+            const handleHeaderChange = (colIndex, value) => {
+                const newHeaders = [...scheduleData.headers];
+                newHeaders[colIndex] = value;
+                const scheduleRef = fb.doc(fb.db, "schedules", scheduleId);
+                fb.updateDoc(scheduleRef, { headers: newHeaders });
+            };
+            
+            const addEmployee = () => {
+                const name = prompt("Enter new employee's name:");
+                if(name && name.trim() !== "") {
+                    const newHeaders = [...scheduleData.headers, name.trim()];
+                    const newRows = scheduleData.rows.map(row => [...row, 'OFF']);
+                    const scheduleRef = fb.doc(fb.db, "schedules", scheduleId);
+                    fb.updateDoc(scheduleRef, { headers: newHeaders, rowsJSON: JSON.stringify(newRows) });
+                }
+            };
+            
+            const deleteEmployee = (colIndex) => {
+                if (window.confirm(`Are you sure you want to delete ${scheduleData.headers[colIndex]}?`)) {
+                    const newHeaders = scheduleData.headers.filter((_, i) => i !== colIndex);
+                    const newRows = scheduleData.rows.map(row => row.filter((_, i) => i !== colIndex));
+                    const scheduleRef = fb.doc(fb.db, "schedules", scheduleId);
+                    fb.updateDoc(scheduleRef, { headers: newHeaders, rowsJSON: JSON.stringify(newRows) });
+                }
+            };
+
+            return (
+                 <div className="bg-white rounded-lg shadow p-4 flex flex-col">
+                     <h3 className="text-lg font-bold text-gray-800 mb-4">{title}</h3>
+                     <div className="overflow-x-auto flex-grow">
+                         <table className="w-full text-sm text-left text-gray-500">
+                             <thead className="text-xs text-gray-700 uppercase bg-gray-50">
+                                 <tr>
+                                     {scheduleData.headers.map((header, index) => (
+                                         <th key={index} className="px-4 py-2 relative">
+                                             <EditableCell value={header} onSave={(value) => handleHeaderChange(index, value)} />
+                                             {index > 0 && (
+                                                <span className="trash-icon" onClick={() => deleteEmployee(index)}>
+                                                    &#128465;
+                                                </span>
+                                             )}
+                                         </th>
+                                     ))}
+                                 </tr>
+                             </thead>
+                             <tbody>
+                                {scheduleData.rows.map((row, rowIndex) => (
+                                     <tr key={rowIndex} className="bg-white border-b hover:bg-gray-50">
+                                         {row.map((cell, colIndex) => (
+                                             <td key={colIndex} className="px-4 py-2">
+                                                 <EditableCell value={cell} onSave={(value) => handleCellChange(rowIndex, colIndex, value)} />
+                                             </td>
+                                         ))}
+                                     </tr>
+                                 ))}
+                             </tbody>
+                         </table>
+                     </div>
+                     <button onClick={addEmployee} className="mt-4 self-start px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700">
+                        Add New {title.includes("Operator") ? "Operator" : "Manager"}
+                     </button>
+                 </div>
             );
         }
 
@@ -581,3 +1049,4 @@
     </script>
 </body>
 </html>
+
