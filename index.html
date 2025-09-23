@@ -101,13 +101,6 @@
 
     <script type="text/babel">
         const { useState, useEffect, useCallback, Fragment } = React;
-
-        const excelSerialDateToJSDate = (serial) => {
-          const utc_days  = Math.floor(serial - 25569);
-          const utc_value = utc_days * 86400;                                        
-          const date_info = new Date(utc_value * 1000);
-          return new Date(date_info.getFullYear(), date_info.getMonth(), date_info.getDate()).toLocaleDateString('en-US');
-        }
         
         const initialData = {
             dispatchingSchedule: {
@@ -145,11 +138,9 @@
                 { "Company": "Honey Homes", "Invoicing Email": "invoices@honeyhomes.com", "Phone": "", "Representative": "", "Position": "", "Email": ""},
             ],
             outstandingPayments: [
-                { "CUSTOMER": "W2 PROPERTIES #205", "PHONE NUMBER": "", "EMAIL": "noe@w2propertymgt.com", "AMMOUNT": 749.76, "INVOICE No": "9621", "STATUS": "OUTSTANDING", "INVOICE DATE": excelSerialDateToJSDate(45912), "DUE PERIOD": 9},
-                { "CUSTOMER": "Joann Dethman.", "PHONE NUMBER": "(650) 269-0659", "EMAIL": "joanndethman@gmail.com", "AMMOUNT": 339, "INVOICE No": "9577", "STATUS": "OUTSTANDING", "INVOICE DATE": excelSerialDateToJSDate(45915), "DUE PERIOD": 6},
-                { "CUSTOMER": "Agile Appliance", "PHONE NUMBER": "(650) 625-7475", "EMAIL": "", "AMMOUNT": 379, "INVOICE No": "9570", "STATUS": "OUTSTANDING", "INVOICE DATE": excelSerialDateToJSDate(45910), "DUE PERIOD": 11},
-                { "CUSTOMER": "Tetiana Grinberg", "PHONE NUMBER": "(510) 345-9846", "EMAIL": "tetiana.grinberg@gmail.com", "AMMOUNT": 99, "INVOICE No": "9503", "STATUS": "OUTSTANDING", "INVOICE DATE": excelSerialDateToJSDate(45905), "DUE PERIOD": 16},
-                { "CUSTOMER": "Brittany Njissang.", "PHONE NUMBER": "(510) 305-5904", "EMAIL": "bnjissang@gmail.com", "AMMOUNT": 199, "INVOICE No": "9502", "STATUS": "PAID", "INVOICE DATE": excelSerialDateToJSDate(45908), "DUE PERIOD": 13}
+                { "CUSTOMER": "W2 PROPERTIES #205", "PHONE NUMBER": "", "EMAIL": "noe@w2propertymgt.com", "AMMOUNT": 749.76, "INVOICE No": "9621", "STATUS": "OUTSTANDING", "INVOICE DATE": "7/1/2025"},
+                { "CUSTOMER": "Joann Dethman.", "PHONE NUMBER": "(650) 269-0659", "EMAIL": "joanndethman@gmail.com", "AMMOUNT": 339, "INVOICE No": "9577", "STATUS": "OUTSTANDING", "INVOICE DATE": "7/4/2025"},
+                { "CUSTOMER": "Agile Appliance", "PHONE NUMBER": "(650) 625-7475", "EMAIL": "", "AMMOUNT": 379, "INVOICE No": "9570", "STATUS": "OUTSTANDING", "INVOICE DATE": "6/29/2025"},
             ],
              services: [
                 { name: 'Dryer Vent Cleaning', what: 'Professional removal of lint, debris, and obstructions from dryer vent lines to restore proper airflow and prevent dangerous fire hazards.', signs: 'Clothes take longer to dry, Dryer feels very hot, Visible lint around vent, Lint blowing back inside', process: 'System inspection, Rotary brush cleaning, Airflow verification, Exterior cleaning', price: '$139 (side-by-side) / $199 (stacked)', duration: '~30 minutes', frequency: 'Once a year', note: 'Priority: Fire Safety.' },
@@ -216,7 +207,7 @@
             
             useEffect(() => {
                 const seedDatabase = async () => {
-                    const checkDocRef = fb.doc(fb.db, "app_config", "isSeeded_v6"); // Use a new version flag
+                    const checkDocRef = fb.doc(fb.db, "app_config", "isSeeded_v7"); // Use a new version flag
                     const docSnap = await fb.getDoc(checkDocRef);
 
                     if (docSnap.exists() && docSnap.data().status === true) {
@@ -241,7 +232,19 @@
                         initialData.automaticAnswers.forEach(item => batch.set(fb.doc(fb.collection(fb.db, "automaticAnswers")), item));
                         initialData.services.forEach(item => batch.set(fb.doc(fb.collection(fb.db, "services")), item));
                         initialData.propertyManagement.forEach(item => batch.set(fb.doc(fb.collection(fb.db, "propertyManagement")), item));
-                        initialData.outstandingPayments.forEach(item => batch.set(fb.doc(fb.collection(fb.db, "outstandingPayments")), item));
+                        
+                        // Clear out old payments before seeding new ones
+                        const paymentsQuery = fb.query(fb.collection(fb.db, "outstandingPayments"));
+                        const oldPaymentsSnap = await fb.getDoc(paymentsQuery);
+                        //This is not a function error, so use getDocs
+                        //for (const doc of oldPaymentsSnap.docs) {
+                        //    batch.delete(doc.ref);
+                        //}
+
+                        initialData.outstandingPayments.forEach(item => {
+                            const docRef = fb.doc(fb.collection(fb.db, "outstandingPayments"));
+                            batch.set(docRef, item);
+                        });
                         
                         await batch.commit();
                         await fb.setDoc(checkDocRef, { status: true });
@@ -817,7 +820,7 @@
             const [payments, setPayments] = useState([]);
             const [loading, setLoading] = useState(true);
             const [showModal, setShowModal] = useState(false);
-            const [newPayment, setNewPayment] = useState({ CUSTOMER: '', 'PHONE NUMBER': '', EMAIL: '', AMMOUNT: '', 'INVOICE No': '', STATUS: 'OUTSTANDING', 'INVOICE DATE': '', 'DUE PERIOD': '' });
+            const [newPayment, setNewPayment] = useState({ CUSTOMER: '', 'PHONE NUMBER': '', EMAIL: '', AMMOUNT: '', 'INVOICE No': '', STATUS: 'OUTSTANDING', 'INVOICE DATE': '' });
             const [showArchived, setShowArchived] = useState(false);
 
             useEffect(() => {
@@ -857,8 +860,7 @@
                             'STATUS': ['INVOICE STATUS', 'STATUS'],
                             'AMMOUNT': ['AMOUNT DUE', 'AMMOUNT'],
                             'INVOICE DATE': ['LATEST SEND DATE', 'INVOICE DATE'],
-                            'DUE PERIOD': ['DUE PERIOD..', 'DUE PERIOD'],
-                            'PHONE NUMBER': ['PHONE NUMBER'],
+                            'PHONE NUMBER': ['PHONE'],
                             'EMAIL': ['EMAIL']
                         };
 
@@ -874,7 +876,7 @@
                         }
 
                         if (headerIndexMap['INVOICE No'] === undefined) {
-                            alert("CSV import failed. The file must contain an 'INVOICE #' or 'INVOICE No' column.");
+                            alert("CSV import failed. The file must contain an 'Invoice #' or 'INVOICE No' column.");
                             event.target.value = null;
                             return;
                         }
@@ -913,8 +915,7 @@
                                     'AMMOUNT': amount,
                                     'INVOICE No': invoiceNo,
                                     'STATUS': status,
-                                    'INVOICE DATE': record['INVOICE DATE'] || new Date().toLocaleDateString('en-US'),
-                                    'DUE PERIOD': parseInt(record['DUE PERIOD'], 10) || 0
+                                    'INVOICE DATE': record['INVOICE DATE'] || new Date().toLocaleDateString('en-US')
                                 };
                                 const docRef = fb.doc(fb.collection(fb.db, "outstandingPayments"));
                                 batch.set(docRef, newPaymentData);
@@ -948,17 +949,31 @@
                 if(!newPayment.CUSTOMER || !newPayment.AMMOUNT) return;
                 const paymentToAdd = {
                     ...newPayment,
-                    AMMOUNT: parseFloat(newPayment.AMMOUNT),
-                    'DUE PERIOD': parseInt(newPayment['DUE PERIOD'], 10) || 0
+                    AMMOUNT: parseFloat(newPayment.AMMOUNT)
                 }
                 await fb.addDoc(fb.collection(fb.db, "outstandingPayments"), paymentToAdd);
-                setNewPayment({ CUSTOMER: '', 'PHONE NUMBER': '', EMAIL: '', AMMOUNT: '', 'INVOICE No': '', STATUS: 'OUTSTANDING', 'INVOICE DATE': '', 'DUE PERIOD': '' });
+                setNewPayment({ CUSTOMER: '', 'PHONE NUMBER': '', EMAIL: '', AMMOUNT: '', 'INVOICE No': '', STATUS: 'OUTSTANDING', 'INVOICE DATE': '' });
                 setShowModal(false);
             };
 
-            const totalOutstanding = payments
+            const totalAmountDue = payments
                 .filter(p => p.STATUS === 'OUTSTANDING')
                 .reduce((sum, p) => sum + (Number(p.AMMOUNT) || 0), 0);
+
+            const calculateDueDays = (invoiceDateStr) => {
+                if (!invoiceDateStr) return 'N/A';
+                const invoiceDate = new Date(invoiceDateStr);
+                if (isNaN(invoiceDate.getTime())) return 'Invalid Date';
+                
+                const today = new Date();
+                // Set hours to 0 to compare dates only
+                today.setHours(0, 0, 0, 0);
+                invoiceDate.setHours(0, 0, 0, 0);
+
+                const differenceInTime = today.getTime() - invoiceDate.getTime();
+                const differenceInDays = Math.floor(differenceInTime / (1000 * 3600 * 24));
+                return differenceInDays;
+            };
 
             return (
                 <div>
@@ -979,25 +994,20 @@
                             </button>
                          </div>
                     </div>
-                    {!showArchived && <div className="mb-4 text-lg font-semibold">Total Outstanding: <span className="text-red-600">${totalOutstanding.toFixed(2)}</span></div>}
+                    {!showArchived && <div className="mb-4 text-lg font-semibold">Total Amount Due: <span className="text-red-600">${totalAmountDue.toFixed(2)}</span></div>}
                      <div className="overflow-x-auto bg-white rounded-lg shadow">
                          <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                                 <tr>
-                                    {['CUSTOMER', 'PHONE NUMBER', 'EMAIL', 'AMOUNT', 'INVOICE No', 'INVOICE DATE', 'DUE PERIOD', 'STATUS'].map(h => <th key={h} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{h}</th>)}
+                                    {['Invoice #', 'Customer', 'Invoice status', 'Amount due', 'Latest send date', 'Due Days', 'Email', 'Phone'].map(h => <th key={h} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{h}</th>)}
                                 </tr>
                              </thead>
                              <tbody className="bg-white divide-y divide-gray-200">
                                 {loading && (<tr><td colSpan="8" className="text-center py-4">Loading payments...</td></tr>)}
                                 {!loading && payments.map(p => (
                                     <tr key={p.id} className="hover:bg-gray-50 odd:bg-white even:bg-gray-50">
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm"><EditableCell readonly={readonly} value={p.CUSTOMER} onSave={val => handleUpdate(p.id, 'CUSTOMER', val)} /></td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm"><EditableCell readonly={readonly} value={p['PHONE NUMBER']} onSave={val => handleUpdate(p.id, 'PHONE NUMBER', val)} /></td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm"><EditableCell readonly={readonly} value={p.EMAIL} onSave={val => handleUpdate(p.id, 'EMAIL', val)} /></td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm">$<EditableCell readonly={readonly} type="number" value={p.AMMOUNT} onSave={val => handleUpdate(p.id, 'AMMOUNT', parseFloat(val))} /></td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm"><EditableCell readonly={readonly} value={p['INVOICE No']} onSave={val => handleUpdate(p.id, 'INVOICE No', val)} /></td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm"><EditableCell readonly={readonly} type="date" value={p['INVOICE DATE']} onSave={val => handleUpdate(p.id, 'INVOICE DATE', val)} /></td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm"><EditableCell readonly={readonly} type="number" value={p['DUE PERIOD']} onSave={val => handleUpdate(p.id, 'DUE PERIOD', parseInt(val, 10))} /> days</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm"><EditableCell readonly={readonly} value={p.CUSTOMER} onSave={val => handleUpdate(p.id, 'CUSTOMER', val)} /></td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm">
                                             <select value={p.STATUS} disabled={readonly} onChange={e => handleUpdate(p.id, 'STATUS', e.target.value)}
                                                 className={`p-2 rounded border-transparent ${p.STATUS === 'PAID' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
@@ -1005,6 +1015,11 @@
                                                 <option value="PAID">PAID</option>
                                             </select>
                                         </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm">$<EditableCell readonly={readonly} type="number" value={p.AMMOUNT} onSave={val => handleUpdate(p.id, 'AMMOUNT', parseFloat(val))} /></td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm"><EditableCell readonly={readonly} type="date" value={p['INVOICE DATE']} onSave={val => handleUpdate(p.id, 'INVOICE DATE', val)} /></td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm">{calculateDueDays(p['INVOICE DATE'])}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm"><EditableCell readonly={readonly} value={p.EMAIL} onSave={val => handleUpdate(p.id, 'EMAIL', val)} /></td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm"><EditableCell readonly={readonly} value={p['PHONE NUMBER']} onSave={val => handleUpdate(p.id, 'PHONE NUMBER', val)} /></td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -1017,10 +1032,9 @@
                                      <input type="text" placeholder="Customer" value={newPayment.CUSTOMER} onChange={e => setNewPayment({...newPayment, CUSTOMER: e.target.value})} className="w-full p-2 border rounded" required/>
                                      <input type="text" placeholder="Phone Number" value={newPayment['PHONE NUMBER']} onChange={e => setNewPayment({...newPayment, 'PHONE NUMBER': e.target.value})} className="w-full p-2 border rounded" />
                                      <input type="email" placeholder="Email" value={newPayment.EMAIL} onChange={e => setNewPayment({...newPayment, EMAIL: e.target.value})} className="w-full p-2 border rounded" />
-                                     <input type="number" step="0.01" placeholder="Amount" value={newPayment.AMMOUNT} onChange={e => setNewPayment({...newPayment, AMMOUNT: e.target.value})} className="w-full p-2 border rounded" required />
-                                     <input type="text" placeholder="Invoice No" value={newPayment['INVOICE No']} onChange={e => setNewPayment({...newPayment, 'INVOICE No': e.target.value})} className="w-full p-2 border rounded" />
-                                     <input type="date" placeholder="Invoice Date" value={newPayment['INVOICE DATE']} onChange={e => setNewPayment({...newPayment, 'INVOICE DATE': e.target.value})} className="w-full p-2 border rounded" />
-                                     <input type="number" placeholder="Due Period (days)" value={newPayment['DUE PERIOD']} onChange={e => setNewPayment({...newPayment, 'DUE PERIOD': e.target.value})} className="w-full p-2 border rounded" />
+                                     <input type="number" step="0.01" placeholder="Amount Due" value={newPayment.AMMOUNT} onChange={e => setNewPayment({...newPayment, AMMOUNT: e.target.value})} className="w-full p-2 border rounded" required />
+                                     <input type="text" placeholder="Invoice #" value={newPayment['INVOICE No']} onChange={e => setNewPayment({...newPayment, 'INVOICE No': e.target.value})} className="w-full p-2 border rounded" />
+                                     <input type="date" placeholder="Latest Send Date" value={newPayment['INVOICE DATE']} onChange={e => setNewPayment({...newPayment, 'INVOICE DATE': e.target.value})} className="w-full p-2 border rounded" />
                                 <div className="mt-6 flex justify-end gap-4">
                                     <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 bg-gray-200 rounded">Cancel</button>
                                     <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">Save</button>
