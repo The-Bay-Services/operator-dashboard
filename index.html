@@ -315,6 +315,7 @@
             const [activeTab, setActiveTab] = useState('dashboard');
              const tabs = {
                 dashboard: 'Dashboard',
+                automaticAnswers: 'Automatic Answers',
                 propertyManagement: 'Property Management',
                 outstandingPayments: 'Outstanding Payments',
                 serviceInfo: 'Service Info',
@@ -324,6 +325,7 @@
             return (
                  <Layout onSwitchRole={onSwitchRole} currentRole={currentRole} activeTab={activeTab} setActiveTab={setActiveTab} tabs={tabs}>
                     {activeTab === 'dashboard' && <Dashboard />}
+                    {activeTab === 'automaticAnswers' && <AutomaticAnswers />}
                     {activeTab === 'propertyManagement' && <PropertyManagement readonly={false}/>}
                     {activeTab === 'outstandingPayments' && <OutstandingPayments />}
                     {activeTab === 'serviceInfo' && <ServiceInfo readonly={false} />}
@@ -442,7 +444,8 @@
         function AutomaticAnswers() {
             const [answers, setAnswers] = useState([]);
             const [selectedName, setSelectedName] = useState('Thomas');
-            const [showModal, setShowModal] = useState(false);
+            const [showAddModal, setShowAddModal] = useState(false);
+            const [editingAnswer, setEditingAnswer] = useState(null);
             const [newAnswer, setNewAnswer] = useState({title: '', text: ''});
             const operators = ['Thomas', 'David', 'Emma', 'Eric', 'Nora', 'Trinity', 'Kenny'];
             
@@ -460,7 +463,21 @@
                 if (!newAnswer.title || !newAnswer.text) return;
                 await fb.addDoc(fb.collection(fb.db, "automaticAnswers"), newAnswer);
                 setNewAnswer({title: '', text: ''});
-                setShowModal(false);
+                setShowAddModal(false);
+            };
+            
+            const handleUpdateAnswer = async (e) => {
+                e.preventDefault();
+                if (!editingAnswer || !editingAnswer.id) return;
+                const { id, ...data } = editingAnswer;
+                await fb.updateDoc(fb.doc(fb.db, "automaticAnswers", id), data);
+                setEditingAnswer(null);
+            };
+
+            const handleDeleteAnswer = async (id) => {
+                if (window.confirm("Are you sure you want to delete this answer permanently?")) {
+                    await fb.deleteDoc(fb.doc(fb.db, "automaticAnswers", id));
+                }
             };
 
             const copyToClipboard = (text) => {
@@ -483,7 +500,7 @@
                                 {operators.map(name => <option key={name} value={name}>{name}</option>)}
                             </select>
                         </div>
-                        <button onClick={() => setShowModal(true)} className="px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700">Add New Answer</button>
+                        <button onClick={() => setShowAddModal(true)} className="px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700">Add New Answer</button>
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -494,16 +511,26 @@
                                 <p className="text-gray-600 whitespace-pre-wrap flex-grow text-sm">
                                     {answer.text.replace(/\[NAME\]/g, selectedName)}
                                 </p>
-                                <button onClick={() => copyToClipboard(answer.text)}
-                                    className="mt-4 self-start px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
-                                    Copy
-                                </button>
+                                <div className="mt-4 self-start flex gap-2">
+                                    <button onClick={() => copyToClipboard(answer.text)}
+                                        className="px-3 py-1 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
+                                        Copy
+                                    </button>
+                                     <button onClick={() => setEditingAnswer(answer)}
+                                        className="px-3 py-1 text-sm font-medium text-white bg-yellow-500 rounded-md hover:bg-yellow-600">
+                                        Edit
+                                    </button>
+                                    <button onClick={() => handleDeleteAnswer(answer.id)}
+                                        className="px-3 py-1 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700">
+                                        Delete
+                                    </button>
+                                </div>
                             </div>
                         ))}
                     </div>
 
-                    {showModal && (
-                        <Modal onClose={() => setShowModal(false)}>
+                    {showAddModal && (
+                        <Modal onClose={() => setShowAddModal(false)}>
                             <h3 className="text-lg font-bold mb-4">Add New Automatic Answer</h3>
                             <form onSubmit={handleAddAnswer}>
                                 <div className="space-y-4">
@@ -511,8 +538,24 @@
                                      <textarea placeholder="Text content... Use [NAME] for the operator's name." value={newAnswer.text} onChange={e => setNewAnswer({...newAnswer, text: e.target.value})} className="w-full p-2 border rounded h-32" required />
                                 </div>
                                 <div className="mt-6 flex justify-end gap-4">
-                                    <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 bg-gray-200 rounded">Cancel</button>
+                                    <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 bg-gray-200 rounded">Cancel</button>
                                     <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">Save</button>
+                                </div>
+                            </form>
+                        </Modal>
+                    )}
+
+                    {editingAnswer && (
+                        <Modal onClose={() => setEditingAnswer(null)}>
+                            <h3 className="text-lg font-bold mb-4">Edit Automatic Answer</h3>
+                            <form onSubmit={handleUpdateAnswer}>
+                                <div className="space-y-4">
+                                     <input type="text" placeholder="Title" value={editingAnswer.title} onChange={e => setEditingAnswer({...editingAnswer, title: e.target.value})} className="w-full p-2 border rounded" required/>
+                                     <textarea placeholder="Text content... Use [NAME] for the operator's name." value={editingAnswer.text} onChange={e => setEditingAnswer({...editingAnswer, text: e.target.value})} className="w-full p-2 border rounded h-32" required />
+                                </div>
+                                <div className="mt-6 flex justify-end gap-4">
+                                    <button type="button" onClick={() => setEditingAnswer(null)} className="px-4 py-2 bg-gray-200 rounded">Cancel</button>
+                                    <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">Update</button>
                                 </div>
                             </form>
                         </Modal>
@@ -1049,4 +1092,3 @@
     </script>
 </body>
 </html>
-
