@@ -901,13 +901,18 @@
                                 const cleanedAmountStr = amountStr.replace(/[^0-9.-]+/g,"");
                                 const amount = parseFloat(cleanedAmountStr) || 0;
 
+                                let status = (record['STATUS'] || 'OUTSTANDING').toUpperCase();
+                                if (status !== 'PAID') {
+                                    status = 'OUTSTANDING';
+                                }
+
                                 const newPaymentData = {
                                     'CUSTOMER': record['CUSTOMER'] || '',
                                     'PHONE NUMBER': record['PHONE NUMBER'] || '',
                                     'EMAIL': record['EMAIL'] || '',
                                     'AMMOUNT': amount,
                                     'INVOICE No': invoiceNo,
-                                    'STATUS': record['STATUS'] || 'OUTSTANDING',
+                                    'STATUS': status,
                                     'INVOICE DATE': record['INVOICE DATE'] || new Date().toLocaleDateString('en-US'),
                                     'DUE PERIOD': parseInt(record['DUE PERIOD'], 10) || 0
                                 };
