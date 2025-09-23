@@ -274,19 +274,74 @@
         }
         
         function RoleSelectionScreen({ onSelectRole }) {
+            const [loginRole, setLoginRole] = useState(null);
+            const [password, setPassword] = useState('');
+            const [error, setError] = useState('');
+
+            const handleLogin = (e) => {
+                e.preventDefault();
+                setError('');
+                
+                const passwords = {
+                    operator: 'Operator2026@@@',
+                    management: 'Management2026@@@'
+                };
+
+                if (passwords[loginRole] === password) {
+                    onSelectRole(loginRole);
+                } else {
+                    setError('Incorrect password. Please try again.');
+                    setPassword('');
+                }
+            };
+
             return (
                 <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
                     <img src="https://thebayservices.com/wp-content/uploads/2022/07/bay-services-logo-300x100.png" alt="The Bay Services Logo" className="mb-8 h-16"/>
                     <div className="w-full max-w-sm p-8 space-y-6 bg-white rounded-lg shadow-lg">
-                        <h2 className="text-2xl font-bold text-center text-gray-800">Select Your Role</h2>
-                        <div className="flex flex-col space-y-4">
-                            <button onClick={() => onSelectRole('operator')} className="w-full px-4 py-3 text-lg font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700">
-                                👤 Operator
-                            </button>
-                            <button onClick={() => onSelectRole('management')} className="w-full px-4 py-3 text-lg font-semibold text-white bg-gray-700 rounded-lg hover:bg-gray-800">
-                                💼 Management
-                            </button>
-                        </div>
+                        
+                        {!loginRole ? (
+                            <Fragment>
+                                <h2 className="text-2xl font-bold text-center text-gray-800">Select Your Role</h2>
+                                <div className="flex flex-col space-y-4">
+                                    <button onClick={() => setLoginRole('operator')} className="w-full px-4 py-3 text-lg font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700">
+                                        👤 Operator
+                                    </button>
+                                    <button onClick={() => setLoginRole('management')} className="w-full px-4 py-3 text-lg font-semibold text-white bg-gray-700 rounded-lg hover:bg-gray-800">
+                                        💼 Management
+                                    </button>
+                                </div>
+                            </Fragment>
+                        ) : (
+                            <Fragment>
+                                <h2 className="text-2xl font-bold text-center text-gray-800">
+                                    Enter Password for <span className="capitalize">{loginRole}</span>
+                                </h2>
+                                <form onSubmit={handleLogin} className="space-y-4">
+                                    <div>
+                                        <label htmlFor="password-input" className="sr-only">Password</label>
+                                        <input
+                                            id="password-input"
+                                            type="password"
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                            className="w-full px-4 py-2 text-gray-700 bg-gray-100 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            placeholder="Password"
+                                            required
+                                            autoFocus
+                                        />
+                                    </div>
+                                    {error && <p className="text-sm text-red-600 text-center">{error}</p>}
+                                    <button type="submit" className="w-full px-4 py-3 text-lg font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700">
+                                        Login
+                                    </button>
+                                    <button type="button" onClick={() => { setLoginRole(null); setError(''); setPassword(''); }} 
+                                            className="w-full px-4 py-2 text-sm font-medium text-gray-600 bg-gray-200 rounded-lg hover:bg-gray-300">
+                                        Back to Role Selection
+                                    </button>
+                                </form>
+                            </Fragment>
+                        )}
                     </div>
                 </div>
             );
