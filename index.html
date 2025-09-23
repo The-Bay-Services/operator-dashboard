@@ -358,10 +358,10 @@
             
             return (
                 <Layout onSwitchRole={onSwitchRole} currentRole={currentRole} activeTab={activeTab} setActiveTab={setActiveTab} tabs={tabs}>
-                    {activeTab === 'dashboard' && <Dashboard />}
-                    {activeTab === 'automaticAnswers' && <AutomaticAnswers />}
+                    {activeTab === 'dashboard' && <Dashboard readonly={true} />}
+                    {activeTab === 'automaticAnswers' && <AutomaticAnswers readonly={true} />}
                     {activeTab === 'serviceInfo' && <ServiceInfo readonly={true} />}
-                    {activeTab === 'propertyManagement' && <PropertyManagement readonly={false}/>}
+                    {activeTab === 'propertyManagement' && <PropertyManagement readonly={true}/>}
                 </Layout>
             );
         }
@@ -379,12 +379,12 @@
             
             return (
                  <Layout onSwitchRole={onSwitchRole} currentRole={currentRole} activeTab={activeTab} setActiveTab={setActiveTab} tabs={tabs}>
-                    {activeTab === 'dashboard' && <Dashboard />}
-                    {activeTab === 'automaticAnswers' && <AutomaticAnswers />}
-                    {activeTab === 'propertyManagement' && <PropertyManagement readonly={false}/>}
-                    {activeTab === 'outstandingPayments' && <OutstandingPayments />}
+                    {activeTab === 'dashboard' && <Dashboard readonly={false} />}
+                    {activeTab === 'automaticAnswers' && <AutomaticAnswers readonly={false} />}
+                    {activeTab === 'propertyManagement' && <PropertyManagement readonly={false} />}
+                    {activeTab === 'outstandingPayments' && <OutstandingPayments readonly={false} />}
                     {activeTab === 'serviceInfo' && <ServiceInfo readonly={false} />}
-                    {activeTab === 'administrativeFiles' && <AdminFiles />}
+                    {activeTab === 'administrativeFiles' && <AdminFiles readonly={false} />}
                 </Layout>
             );
         }
@@ -484,19 +484,19 @@
         }
 
         // --- Tab Components ---
-        function Dashboard() {
+        function Dashboard({ readonly }) {
             return (
                 <div>
                     <h2 className="text-2xl font-bold text-gray-800 mb-6">Work Schedules</h2>
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        <ScheduleTable scheduleId="dispatchingSchedule" title="Operator Schedule" />
-                        <ScheduleTable scheduleId="managementSchedule" title="Management Schedule" />
+                        <ScheduleTable scheduleId="dispatchingSchedule" title="Operator Schedule" readonly={readonly} />
+                        <ScheduleTable scheduleId="managementSchedule" title="Management Schedule" readonly={readonly} />
                     </div>
                 </div>
             );
         }
 
-        function AutomaticAnswers() {
+        function AutomaticAnswers({ readonly = false }) {
             const [answers, setAnswers] = useState([]);
             const [selectedName, setSelectedName] = useState('Thomas');
             const [showAddModal, setShowAddModal] = useState(false);
@@ -555,7 +555,9 @@
                                 {operators.map(name => <option key={name} value={name}>{name}</option>)}
                             </select>
                         </div>
-                        <button onClick={() => setShowAddModal(true)} className="px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700">Add New Answer</button>
+                        {!readonly && (
+                            <button onClick={() => setShowAddModal(true)} className="px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700">Add New Answer</button>
+                        )}
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -571,14 +573,18 @@
                                         className="px-3 py-1 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
                                         Copy
                                     </button>
-                                     <button onClick={() => setEditingAnswer(answer)}
-                                        className="px-3 py-1 text-sm font-medium text-white bg-yellow-500 rounded-md hover:bg-yellow-600">
-                                        Edit
-                                    </button>
-                                    <button onClick={() => handleDeleteAnswer(answer.id)}
-                                        className="px-3 py-1 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700">
-                                        Delete
-                                    </button>
+                                    {!readonly && (
+                                        <Fragment>
+                                             <button onClick={() => setEditingAnswer(answer)}
+                                                className="px-3 py-1 text-sm font-medium text-white bg-yellow-500 rounded-md hover:bg-yellow-600">
+                                                Edit
+                                            </button>
+                                            <button onClick={() => handleDeleteAnswer(answer.id)}
+                                                className="px-3 py-1 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700">
+                                                Delete
+                                            </button>
+                                        </Fragment>
+                                    )}
                                 </div>
                             </div>
                         ))}
@@ -770,7 +776,9 @@
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="px-4 py-2 border border-gray-300 rounded-lg"
                             />
-                           <button onClick={() => setShowModal(true)} className="px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700">Add New Company</button>
+                           {!readonly && (
+                            <button onClick={() => setShowModal(true)} className="px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700">Add New Company</button>
+                           )}
                         </div>
                     </div>
                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -805,11 +813,11 @@
             )
         }
         
-        function OutstandingPayments() {
+        function OutstandingPayments({ readonly }) {
             const [payments, setPayments] = useState([]);
             const [loading, setLoading] = useState(true);
             const [showModal, setShowModal] = useState(false);
-            const [newPayment, setNewPayment] = useState({ CUSTOMER: '', AMMOUNT: '', 'INVOICE No': '', STATUS: 'OUTSTANDING', 'INVOICE DATE': '', 'DUE PERIOD': '' });
+            const [newPayment, setNewPayment] = useState({ CUSTOMER: '', 'PHONE NUMBER': '', EMAIL: '', AMMOUNT: '', 'INVOICE No': '', STATUS: 'OUTSTANDING', 'INVOICE DATE': '', 'DUE PERIOD': '' });
             const [showArchived, setShowArchived] = useState(false);
 
             useEffect(() => {
@@ -826,6 +834,104 @@
                 });
                 return () => unsubscribe();
             }, [showArchived]);
+            
+            const handleCsvUpload = (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    try {
+                        const text = e.target.result;
+                        const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
+                        if (lines.length < 2) {
+                            alert("CSV file is empty or contains only a header.");
+                            return;
+                        }
+
+                        const fileHeaders = lines[0].split(',').map(h => h.trim().toUpperCase());
+
+                        const keyMap = {
+                            'INVOICE No': ['INVOICE #', 'INVOICE NO'],
+                            'CUSTOMER': ['CUSTOMER'],
+                            'STATUS': ['INVOICE STATUS', 'STATUS'],
+                            'AMMOUNT': ['AMOUNT DUE', 'AMMOUNT'],
+                            'INVOICE DATE': ['LATEST SEND DATE', 'INVOICE DATE'],
+                            'DUE PERIOD': ['DUE PERIOD..', 'DUE PERIOD'],
+                            'PHONE NUMBER': ['PHONE NUMBER'],
+                            'EMAIL': ['EMAIL']
+                        };
+
+                        const headerIndexMap = {};
+                        for (const [internalKey, possibleHeaders] of Object.entries(keyMap)) {
+                            for (const pHeader of possibleHeaders) {
+                                const fileHeaderIndex = fileHeaders.indexOf(pHeader.toUpperCase());
+                                if (fileHeaderIndex !== -1) {
+                                    headerIndexMap[internalKey] = fileHeaderIndex;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (headerIndexMap['INVOICE No'] === undefined) {
+                            alert("CSV import failed. The file must contain an 'INVOICE #' or 'INVOICE No' column.");
+                            event.target.value = null;
+                            return;
+                        }
+
+                        const records = lines.slice(1).map(line => {
+                            const values = line.split(',');
+                            const record = {};
+                            for (const [internalKey, index] of Object.entries(headerIndexMap)) {
+                                if (values[index] !== undefined) {
+                                     record[internalKey] = values[index].trim();
+                                }
+                            }
+                            return record;
+                        });
+                        
+                        const existingInvoiceNos = new Set(payments.map(p => p['INVOICE No']));
+                        const batch = fb.writeBatch(fb.db);
+                        let newRecordsCount = 0;
+
+                        records.forEach(record => {
+                            const invoiceNo = record['INVOICE No'];
+                            if (invoiceNo && !existingInvoiceNos.has(invoiceNo)) {
+                                const amountStr = record['AMMOUNT'] || '0';
+                                const cleanedAmountStr = amountStr.replace(/[^0-9.-]+/g,"");
+                                const amount = parseFloat(cleanedAmountStr) || 0;
+
+                                const newPaymentData = {
+                                    'CUSTOMER': record['CUSTOMER'] || '',
+                                    'PHONE NUMBER': record['PHONE NUMBER'] || '',
+                                    'EMAIL': record['EMAIL'] || '',
+                                    'AMMOUNT': amount,
+                                    'INVOICE No': invoiceNo,
+                                    'STATUS': record['STATUS'] || 'OUTSTANDING',
+                                    'INVOICE DATE': record['INVOICE DATE'] || new Date().toLocaleDateString('en-US'),
+                                    'DUE PERIOD': parseInt(record['DUE PERIOD'], 10) || 0
+                                };
+                                const docRef = fb.doc(fb.collection(fb.db, "outstandingPayments"));
+                                batch.set(docRef, newPaymentData);
+                                newRecordsCount++;
+                            }
+                        });
+
+                        if (newRecordsCount > 0) {
+                            await batch.commit();
+                            alert(`${newRecordsCount} new records were successfully imported.`);
+                        } else {
+                            alert("No new records found to import. All invoice numbers in the file may already exist.");
+                        }
+                    } catch (error) {
+                        console.error("CSV Import Error:", error);
+                        alert("An error occurred during the CSV import. Please check the console for details.");
+                    } finally {
+                        event.target.value = null;
+                    }
+                };
+                reader.readAsText(file);
+            };
 
             const handleUpdate = async (id, field, value) => {
                 const docRef = fb.doc(fb.db, "outstandingPayments", id);
@@ -841,7 +947,7 @@
                     'DUE PERIOD': parseInt(newPayment['DUE PERIOD'], 10) || 0
                 }
                 await fb.addDoc(fb.collection(fb.db, "outstandingPayments"), paymentToAdd);
-                setNewPayment({ CUSTOMER: '', AMMOUNT: '', 'INVOICE No': '', STATUS: 'OUTSTANDING', 'INVOICE DATE': '', 'DUE PERIOD': '' });
+                setNewPayment({ CUSTOMER: '', 'PHONE NUMBER': '', EMAIL: '', AMMOUNT: '', 'INVOICE No': '', STATUS: 'OUTSTANDING', 'INVOICE DATE': '', 'DUE PERIOD': '' });
                 setShowModal(false);
             };
 
@@ -854,7 +960,15 @@
                     <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
                         <h2 className="text-2xl font-bold text-gray-800">Outstanding Payments</h2>
                          <div className="flex items-center gap-4">
-                            <button onClick={() => setShowModal(true)} className="px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700">Add New</button>
+                            {!readonly && (
+                                <Fragment>
+                                    <label className="px-4 py-2 text-white bg-purple-600 rounded-lg hover:bg-purple-700 cursor-pointer">
+                                        Import CSV
+                                        <input type="file" accept=".csv" onChange={handleCsvUpload} className="hidden" />
+                                    </label>
+                                    <button onClick={() => setShowModal(true)} className="px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700">Add New</button>
+                                </Fragment>
+                            )}
                              <button onClick={() => setShowArchived(!showArchived)} className="px-4 py-2 text-white bg-gray-500 rounded-lg hover:bg-gray-600">
                                 {showArchived ? 'Show Outstanding' : 'Show Archive (Paid)'}
                             </button>
@@ -865,20 +979,22 @@
                          <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                                 <tr>
-                                    {['CUSTOMER', 'AMOUNT', 'INVOICE No', 'INVOICE DATE', 'DUE PERIOD', 'STATUS'].map(h => <th key={h} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{h}</th>)}
+                                    {['CUSTOMER', 'PHONE NUMBER', 'EMAIL', 'AMOUNT', 'INVOICE No', 'INVOICE DATE', 'DUE PERIOD', 'STATUS'].map(h => <th key={h} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{h}</th>)}
                                 </tr>
                              </thead>
                              <tbody className="bg-white divide-y divide-gray-200">
-                                {loading && (<tr><td colSpan="6" className="text-center py-4">Loading payments...</td></tr>)}
+                                {loading && (<tr><td colSpan="8" className="text-center py-4">Loading payments...</td></tr>)}
                                 {!loading && payments.map(p => (
                                     <tr key={p.id} className="hover:bg-gray-50 odd:bg-white even:bg-gray-50">
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm"><EditableCell value={p.CUSTOMER} onSave={val => handleUpdate(p.id, 'CUSTOMER', val)} /></td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm">$<EditableCell type="number" value={p.AMMOUNT} onSave={val => handleUpdate(p.id, 'AMMOUNT', parseFloat(val))} /></td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm"><EditableCell value={p['INVOICE No']} onSave={val => handleUpdate(p.id, 'INVOICE No', val)} /></td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm"><EditableCell type="date" value={p['INVOICE DATE']} onSave={val => handleUpdate(p.id, 'INVOICE DATE', val)} /></td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm"><EditableCell type="number" value={p['DUE PERIOD']} onSave={val => handleUpdate(p.id, 'DUE PERIOD', parseInt(val, 10))} /> days</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm"><EditableCell readonly={readonly} value={p.CUSTOMER} onSave={val => handleUpdate(p.id, 'CUSTOMER', val)} /></td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm"><EditableCell readonly={readonly} value={p['PHONE NUMBER']} onSave={val => handleUpdate(p.id, 'PHONE NUMBER', val)} /></td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm"><EditableCell readonly={readonly} value={p.EMAIL} onSave={val => handleUpdate(p.id, 'EMAIL', val)} /></td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm">$<EditableCell readonly={readonly} type="number" value={p.AMMOUNT} onSave={val => handleUpdate(p.id, 'AMMOUNT', parseFloat(val))} /></td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm"><EditableCell readonly={readonly} value={p['INVOICE No']} onSave={val => handleUpdate(p.id, 'INVOICE No', val)} /></td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm"><EditableCell readonly={readonly} type="date" value={p['INVOICE DATE']} onSave={val => handleUpdate(p.id, 'INVOICE DATE', val)} /></td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm"><EditableCell readonly={readonly} type="number" value={p['DUE PERIOD']} onSave={val => handleUpdate(p.id, 'DUE PERIOD', parseInt(val, 10))} /> days</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                            <select value={p.STATUS} onChange={e => handleUpdate(p.id, 'STATUS', e.target.value)}
+                                            <select value={p.STATUS} disabled={readonly} onChange={e => handleUpdate(p.id, 'STATUS', e.target.value)}
                                                 className={`p-2 rounded border-transparent ${p.STATUS === 'PAID' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                                                 <option value="OUTSTANDING">OUTSTANDING</option>
                                                 <option value="PAID">PAID</option>
@@ -894,6 +1010,8 @@
                             <h3 className="text-lg font-bold mb-4">Add New Payment</h3>
                             <form onSubmit={handleAdd} className="space-y-4">
                                      <input type="text" placeholder="Customer" value={newPayment.CUSTOMER} onChange={e => setNewPayment({...newPayment, CUSTOMER: e.target.value})} className="w-full p-2 border rounded" required/>
+                                     <input type="text" placeholder="Phone Number" value={newPayment['PHONE NUMBER']} onChange={e => setNewPayment({...newPayment, 'PHONE NUMBER': e.target.value})} className="w-full p-2 border rounded" />
+                                     <input type="email" placeholder="Email" value={newPayment.EMAIL} onChange={e => setNewPayment({...newPayment, EMAIL: e.target.value})} className="w-full p-2 border rounded" />
                                      <input type="number" step="0.01" placeholder="Amount" value={newPayment.AMMOUNT} onChange={e => setNewPayment({...newPayment, AMMOUNT: e.target.value})} className="w-full p-2 border rounded" required />
                                      <input type="text" placeholder="Invoice No" value={newPayment['INVOICE No']} onChange={e => setNewPayment({...newPayment, 'INVOICE No': e.target.value})} className="w-full p-2 border rounded" />
                                      <input type="date" placeholder="Invoice Date" value={newPayment['INVOICE DATE']} onChange={e => setNewPayment({...newPayment, 'INVOICE DATE': e.target.value})} className="w-full p-2 border rounded" />
@@ -909,7 +1027,7 @@
             );
         }
 
-        function AdminFiles() {
+        function AdminFiles({ readonly }) {
             const [files, setFiles] = useState([]);
             const [uploading, setUploading] = useState(false);
 
@@ -965,17 +1083,21 @@
             return (
                  <div>
                     <h2 className="text-2xl font-bold text-gray-800 mb-6">Administrative Files</h2>
-                    <div className="mb-6 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded" role="alert">
-                      <p className="font-bold">Important Note</p>
-                      <p>File storage is handled by Firestore to stay on the free plan. The maximum file size is 1MB.</p>
-                    </div>
-                    <div className="mb-6">
-                        <label className="block mb-2 text-sm font-medium text-gray-900" htmlFor="file_input">Upload File</label>
-                        <input onChange={handleUpload} disabled={uploading}
-                            className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none"
-                            id="file_input" type="file" />
-                         {uploading && <p className="mt-2 text-sm text-blue-600">Uploading...</p>}
-                    </div>
+                     {!readonly && (
+                        <Fragment>
+                            <div className="mb-6 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded" role="alert">
+                              <p className="font-bold">Important Note</p>
+                              <p>File storage is handled by Firestore to stay on the free plan. The maximum file size is 1MB.</p>
+                            </div>
+                            <div className="mb-6">
+                                <label className="block mb-2 text-sm font-medium text-gray-900" htmlFor="file_input">Upload File</label>
+                                <input onChange={handleUpload} disabled={uploading}
+                                    className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none"
+                                    id="file_input" type="file" />
+                                 {uploading && <p className="mt-2 text-sm text-blue-600">Uploading...</p>}
+                            </div>
+                        </Fragment>
+                    )}
 
                     <div className="bg-white p-4 rounded-lg shadow">
                          <h3 className="font-semibold mb-4">Uploaded Files:</h3>
@@ -987,7 +1109,9 @@
                                         <a href={file.dataUrl} download={file.name} className="px-3 py-1 text-sm text-white bg-blue-500 rounded hover:bg-blue-600">
                                              Download
                                         </a>
-                                        <button onClick={() => handleDelete(file.id, file.name)} className="px-3 py-1 text-sm text-white bg-red-500 rounded hover:bg-red-600">Delete</button>
+                                        {!readonly && (
+                                            <button onClick={() => handleDelete(file.id, file.name)} className="px-3 py-1 text-sm text-white bg-red-500 rounded hover:bg-red-600">Delete</button>
+                                        )}
                                      </div>
                                  </li>
                              ))}
@@ -1054,7 +1178,7 @@
             return <span onClick={() => setEditing(true)} className="cursor-pointer hover:bg-yellow-100 p-1 rounded">{value || "-"}</span>;
         }
 
-        function ScheduleTable({ scheduleId, title }) {
+        function ScheduleTable({ scheduleId, title, readonly }) {
             const [scheduleData, setScheduleData] = useState({ headers: [], rows: [] });
 
             useEffect(() => {
@@ -1113,8 +1237,8 @@
                                  <tr>
                                      {scheduleData.headers.map((header, index) => (
                                          <th key={index} className="px-4 py-2 relative">
-                                             <EditableCell value={header} onSave={(value) => handleHeaderChange(index, value)} />
-                                             {index > 0 && (
+                                             <EditableCell readonly={readonly || index === 0} value={header} onSave={(value) => handleHeaderChange(index, value)} />
+                                             {!readonly && index > 0 && (
                                                 <span className="trash-icon" onClick={() => deleteEmployee(index)}>
                                                     &#128465;
                                                 </span>
@@ -1128,7 +1252,7 @@
                                      <tr key={rowIndex} className="bg-white border-b hover:bg-gray-50">
                                          {row.map((cell, colIndex) => (
                                              <td key={colIndex} className="px-4 py-2">
-                                                 <EditableCell value={cell} onSave={(value) => handleCellChange(rowIndex, colIndex, value)} />
+                                                 <EditableCell readonly={readonly || colIndex === 0} value={cell} onSave={(value) => handleCellChange(rowIndex, colIndex, value)} />
                                              </td>
                                          ))}
                                      </tr>
@@ -1136,9 +1260,11 @@
                              </tbody>
                          </table>
                      </div>
-                     <button onClick={addEmployee} className="mt-4 self-start px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700">
-                        Add New {title.includes("Operator") ? "Operator" : "Manager"}
-                     </button>
+                     {!readonly && (
+                        <button onClick={addEmployee} className="mt-4 self-start px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700">
+                            Add New {title.includes("Operator") ? "Operator" : "Manager"}
+                        </button>
+                     )}
                  </div>
             );
         }
