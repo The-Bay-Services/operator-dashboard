@@ -494,7 +494,6 @@
         function AutomaticAnswers({ readonly = false }) {
             const [answers, setAnswers] = useState([]);
             const [selectedName, setSelectedName] = useState('Thomas');
-            const [showAddModal, setShowAddModal] = useState(false);
             const [editingAnswer, setEditingAnswer] = useState(null);
             const operators = ['Thomas', 'David', 'Emma', 'Eric', 'Nora', 'Trinity', 'Kenny'];
             
@@ -510,16 +509,28 @@
             const openAddModal = () => {
                 setEditingAnswer({ title: '', blocks: [''] });
             };
+            
+            const handleEditClick = (answer) => {
+                const normalizedAnswer = {
+                    ...answer,
+                    // This ensures compatibility with old records that only have a `text` field
+                    blocks: answer.blocks || [answer.text || '']
+                };
+                setEditingAnswer(normalizedAnswer);
+            };
 
             const handleUpdateAnswer = async (e) => {
                 e.preventDefault();
                 if (!editingAnswer || !editingAnswer.title || editingAnswer.blocks.some(b => !b)) return;
+                
+                // Don't save the old 'text' field if it exists
+                const { text, ...dataToSave } = editingAnswer;
 
-                if (editingAnswer.id) { // Editing existing
-                    const { id, ...data } = editingAnswer;
+                if (dataToSave.id) { // Editing existing
+                    const { id, ...data } = dataToSave;
                     await fb.updateDoc(fb.doc(fb.db, "automaticAnswers", id), data);
                 } else { // Adding new
-                    const { id, ...data } = editingAnswer;
+                    const { id, ...data } = dataToSave;
                     await fb.addDoc(fb.collection(fb.db, "automaticAnswers"), data);
                 }
                 setEditingAnswer(null);
@@ -598,7 +609,7 @@
                                     </button>
                                     {!readonly && (
                                         <Fragment>
-                                             <button onClick={() => setEditingAnswer(answer)}
+                                             <button onClick={() => handleEditClick(answer)}
                                                 className="px-3 py-1 text-sm font-medium text-white bg-yellow-500 rounded-md hover:bg-yellow-600">
                                                 Edit
                                             </button>
