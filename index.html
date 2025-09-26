@@ -513,7 +513,6 @@
             const handleEditClick = (answer) => {
                 const normalizedAnswer = {
                     ...answer,
-                    // This ensures compatibility with old records that only have a `text` field
                     blocks: answer.blocks || [answer.text || '']
                 };
                 setEditingAnswer(normalizedAnswer);
@@ -523,13 +522,12 @@
                 e.preventDefault();
                 if (!editingAnswer || !editingAnswer.title || editingAnswer.blocks.some(b => !b)) return;
                 
-                // Don't save the old 'text' field if it exists
                 const { text, ...dataToSave } = editingAnswer;
 
-                if (dataToSave.id) { // Editing existing
+                if (dataToSave.id) {
                     const { id, ...data } = dataToSave;
                     await fb.updateDoc(fb.doc(fb.db, "automaticAnswers", id), data);
-                } else { // Adding new
+                } else {
                     const { id, ...data } = dataToSave;
                     await fb.addDoc(fb.collection(fb.db, "automaticAnswers"), data);
                 }
@@ -565,8 +563,8 @@
                 }
             };
 
-            const copyToClipboard = (blocks) => {
-                const finalText = (blocks || []).map(b => b.replace(/\[NAME\]/g, selectedName)).join('\n\n');
+            const copyToClipboard = (text) => {
+                const finalText = text.replace(/\[NAME\]/g, selectedName);
                 navigator.clipboard.writeText(finalText).then(() => {
                     alert('Text copied!');
                 }).catch(err => {
@@ -594,32 +592,36 @@
                          {answers.length === 0 && <p>Loading answers...</p>}
                         {answers.map(answer => (
                             <div key={answer.id} className="bg-white p-6 rounded-lg shadow-md flex flex-col">
-                                <h3 className="text-lg font-bold text-gray-800 mb-3">{answer.title}</h3>
-                                <div className="text-gray-600 whitespace-pre-wrap flex-grow text-sm">
-                                   {(answer.blocks || [answer.text]).map((block, index) => (
-                                        <p key={index} className={index > 0 ? "mt-4" : ""}>
-                                            {block.replace(/\[NAME\]/g, selectedName)}
-                                        </p>
+                                <h3 className="text-lg font-bold text-gray-800 mb-2">{answer.title}</h3>
+                                
+                                <div className="space-y-3 mt-2 flex-grow">
+                                    {(answer.blocks || [answer.text]).map((block, index) => (
+                                        <div key={index} className="bg-gray-50 border border-gray-200 p-3 rounded-lg relative">
+                                            <p className="text-gray-800 whitespace-pre-wrap text-sm pr-16">
+                                                {block.replace(/\[NAME\]/g, selectedName)}
+                                            </p>
+                                            <button 
+                                                onClick={() => copyToClipboard(block)} 
+                                                className="absolute top-2 right-2 px-2 py-1 text-xs font-medium text-white bg-blue-500 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                            >
+                                                Copy
+                                            </button>
+                                        </div>
                                     ))}
                                 </div>
-                                <div className="mt-4 self-start flex gap-2">
-                                    <button onClick={() => copyToClipboard(answer.blocks || [answer.text])}
-                                        className="px-3 py-1 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
-                                        Copy
-                                    </button>
-                                    {!readonly && (
-                                        <Fragment>
-                                             <button onClick={() => handleEditClick(answer)}
-                                                className="px-3 py-1 text-sm font-medium text-white bg-yellow-500 rounded-md hover:bg-yellow-600">
-                                                Edit
-                                            </button>
-                                            <button onClick={() => handleDeleteAnswer(answer.id)}
-                                                className="px-3 py-1 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700">
-                                                Delete
-                                            </button>
-                                        </Fragment>
-                                    )}
-                                </div>
+
+                                {!readonly && (
+                                    <div className="mt-4 pt-4 border-t border-gray-200 self-start flex gap-2">
+                                        <button onClick={() => handleEditClick(answer)}
+                                            className="px-3 py-1 text-sm font-medium text-white bg-yellow-500 rounded-md hover:bg-yellow-600">
+                                            Edit
+                                        </button>
+                                        <button onClick={() => handleDeleteAnswer(answer.id)}
+                                            className="px-3 py-1 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700">
+                                            Delete
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>
