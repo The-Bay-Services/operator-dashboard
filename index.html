@@ -76,7 +76,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { 
-            getFirestore, collection, doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, onSnapshot, writeBatch, query, where
+            getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, onSnapshot, writeBatch, query, where
         } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         // Your Firebase configuration has been successfully embedded.
@@ -96,7 +96,7 @@
         const db = getFirestore(app);
         signInAnonymously(auth).catch(error => console.error("Anonymous sign-in failed:", error));
         
-        window.fb = { db, collection, doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, onSnapshot, writeBatch, query, where };
+        window.fb = { db, collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, onSnapshot, writeBatch, query, where };
     </script>
 
     <script type="text/babel">
@@ -128,9 +128,9 @@
                 ]
             },
             automaticAnswers: [
-                { title: 'Air Duct cleaning', text: 'Hi       ,\n\nThis is [NAME] with Bay Services and thank you for considering air duct cleaning services with us.\n\n1️⃣ -- The price for the full HVAC system cleaning for up to 10 vents will be $340 ($25 for each additional).\n\n2️⃣ -- Please kindly note that you will always get a free dryer vent, kitchen exhaust/range, and chimney/fireplace inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment.' },
-                { title: 'Chimney /fireplace cleaning', text: 'Hi       ,\n\nThis is [NAME] with Bay Services and thank you for considering Chimney/fireplace cleaning services with us.\n\n1️⃣ — The price of the chimney / fireplace inspection and cleaning will be $169.\n\n2️⃣  — Please kindly note that  you will always get a free dryer vent, kitchen exhaust/range and HVAC vents/registers inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment.' },
-                { title: 'Dryer vent cleaning', text: 'Hi       ,\n\nThis is [NAME] with Bay Services and thank you for considering dryer vent & duct cleaning services with us.\n\n1️⃣ -- The price of a dryer vent cleaning will be $139\n\n2️⃣  -- Please kindly note that  you will always get a free chimney / fireplace , kitchen exhaust/range and HVAC vents/registers inspection.\n\n📞 –You can always give me a call/text me at (650)731-7359 to make an appointment.' },
+                { title: 'Air Duct cleaning', blocks: ['Hi       ,\n\nThis is [NAME] with Bay Services and thank you for considering air duct cleaning services with us.', '1️⃣ -- The price for the full HVAC system cleaning for up to 10 vents will be $340 ($25 for each additional).', '2️⃣ -- Please kindly note that you will always get a free dryer vent, kitchen exhaust/range, and chimney/fireplace inspection.', '📞 –You can always give me a call/text me at (650)731-7359 to make an appointment.'] },
+                { title: 'Chimney /fireplace cleaning', blocks: ['Hi       ,\n\nThis is [NAME] with Bay Services and thank you for considering Chimney/fireplace cleaning services with us.', '1️⃣ — The price of the chimney / fireplace inspection and cleaning will be $169.', '2️⃣  — Please kindly note that  you will always get a free dryer vent, kitchen exhaust/range and HVAC vents/registers inspection.', '📞 –You can always give me a call/text me at (650)731-7359 to make an appointment.'] },
+                { title: 'Dryer vent cleaning', blocks: ['Hi       ,\n\nThis is [NAME] with Bay Services and thank you for considering dryer vent & duct cleaning services with us.', '1️⃣ -- The price of a dryer vent cleaning will be $139', '2️⃣  -- Please kindly note that  you will always get a free chimney / fireplace , kitchen exhaust/range and HVAC vents/registers inspection.', '📞 –You can always give me a call/text me at (650)731-7359 to make an appointment.'] },
             ],
             propertyManagement: [
                 { "Company": "Agile Appliance", "Invoicing Email": "", "Phone": "(650) 625-7475", "Representative": "", "Position": "", "Email": ""},
@@ -207,7 +207,7 @@
             
             useEffect(() => {
                 const seedDatabase = async () => {
-                    const checkDocRef = fb.doc(fb.db, "app_config", "isSeeded_v7"); // Use a new version flag
+                    const checkDocRef = fb.doc(fb.db, "app_config", "isSeeded_v8"); // Use a new version flag for new data structure
                     const docSnap = await fb.getDoc(checkDocRef);
 
                     if (docSnap.exists() && docSnap.data().status === true) {
@@ -233,14 +233,6 @@
                         initialData.services.forEach(item => batch.set(fb.doc(fb.collection(fb.db, "services")), item));
                         initialData.propertyManagement.forEach(item => batch.set(fb.doc(fb.collection(fb.db, "propertyManagement")), item));
                         
-                        // Clear out old payments before seeding new ones
-                        const paymentsQuery = fb.query(fb.collection(fb.db, "outstandingPayments"));
-                        const oldPaymentsSnap = await fb.getDoc(paymentsQuery);
-                        //This is not a function error, so use getDocs
-                        //for (const doc of oldPaymentsSnap.docs) {
-                        //    batch.delete(doc.ref);
-                        //}
-
                         initialData.outstandingPayments.forEach(item => {
                             const docRef = fb.doc(fb.collection(fb.db, "outstandingPayments"));
                             batch.set(docRef, item);
@@ -504,7 +496,6 @@
             const [selectedName, setSelectedName] = useState('Thomas');
             const [showAddModal, setShowAddModal] = useState(false);
             const [editingAnswer, setEditingAnswer] = useState(null);
-            const [newAnswer, setNewAnswer] = useState({title: '', text: ''});
             const operators = ['Thomas', 'David', 'Emma', 'Eric', 'Nora', 'Trinity', 'Kenny'];
             
             useEffect(() => {
@@ -516,20 +507,45 @@
                 return () => unsubscribe();
             }, []);
 
-            const handleAddAnswer = async (e) => {
-                e.preventDefault();
-                if (!newAnswer.title || !newAnswer.text) return;
-                await fb.addDoc(fb.collection(fb.db, "automaticAnswers"), newAnswer);
-                setNewAnswer({title: '', text: ''});
-                setShowAddModal(false);
+            const openAddModal = () => {
+                setEditingAnswer({ title: '', blocks: [''] });
             };
-            
+
             const handleUpdateAnswer = async (e) => {
                 e.preventDefault();
-                if (!editingAnswer || !editingAnswer.id) return;
-                const { id, ...data } = editingAnswer;
-                await fb.updateDoc(fb.doc(fb.db, "automaticAnswers", id), data);
+                if (!editingAnswer || !editingAnswer.title || editingAnswer.blocks.some(b => !b)) return;
+
+                if (editingAnswer.id) { // Editing existing
+                    const { id, ...data } = editingAnswer;
+                    await fb.updateDoc(fb.doc(fb.db, "automaticAnswers", id), data);
+                } else { // Adding new
+                    const { id, ...data } = editingAnswer;
+                    await fb.addDoc(fb.collection(fb.db, "automaticAnswers"), data);
+                }
                 setEditingAnswer(null);
+            };
+            
+            const handleModalChange = (field, value) => {
+                 setEditingAnswer(prev => ({ ...prev, [field]: value }));
+            };
+            
+            const handleBlockChange = (index, value) => {
+                const newBlocks = [...editingAnswer.blocks];
+                newBlocks[index] = value;
+                handleModalChange('blocks', newBlocks);
+            };
+
+            const addBlock = () => {
+                handleModalChange('blocks', [...editingAnswer.blocks, '']);
+            };
+
+            const removeBlock = (index) => {
+                 if (editingAnswer.blocks.length > 1) {
+                    const newBlocks = editingAnswer.blocks.filter((_, i) => i !== index);
+                    handleModalChange('blocks', newBlocks);
+                } else {
+                    alert("You must have at least one block.");
+                }
             };
 
             const handleDeleteAnswer = async (id) => {
@@ -538,8 +554,8 @@
                 }
             };
 
-            const copyToClipboard = (text) => {
-                const finalText = text.replace(/\[NAME\]/g, selectedName);
+            const copyToClipboard = (blocks) => {
+                const finalText = (blocks || []).map(b => b.replace(/\[NAME\]/g, selectedName)).join('\n\n');
                 navigator.clipboard.writeText(finalText).then(() => {
                     alert('Text copied!');
                 }).catch(err => {
@@ -559,7 +575,7 @@
                             </select>
                         </div>
                         {!readonly && (
-                            <button onClick={() => setShowAddModal(true)} className="px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700">Add New Answer</button>
+                            <button onClick={openAddModal} className="px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700">Add New Answer</button>
                         )}
                     </div>
                     
@@ -568,11 +584,15 @@
                         {answers.map(answer => (
                             <div key={answer.id} className="bg-white p-6 rounded-lg shadow-md flex flex-col">
                                 <h3 className="text-lg font-bold text-gray-800 mb-3">{answer.title}</h3>
-                                <p className="text-gray-600 whitespace-pre-wrap flex-grow text-sm">
-                                    {answer.text.replace(/\[NAME\]/g, selectedName)}
-                                </p>
+                                <div className="text-gray-600 whitespace-pre-wrap flex-grow text-sm">
+                                   {(answer.blocks || [answer.text]).map((block, index) => (
+                                        <p key={index} className={index > 0 ? "mt-4" : ""}>
+                                            {block.replace(/\[NAME\]/g, selectedName)}
+                                        </p>
+                                    ))}
+                                </div>
                                 <div className="mt-4 self-start flex gap-2">
-                                    <button onClick={() => copyToClipboard(answer.text)}
+                                    <button onClick={() => copyToClipboard(answer.blocks || [answer.text])}
                                         className="px-3 py-1 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
                                         Copy
                                     </button>
@@ -593,33 +613,33 @@
                         ))}
                     </div>
 
-                    {showAddModal && (
-                        <Modal onClose={() => setShowAddModal(false)}>
-                            <h3 className="text-lg font-bold mb-4">Add New Automatic Answer</h3>
-                            <form onSubmit={handleAddAnswer}>
-                                <div className="space-y-4">
-                                     <input type="text" placeholder="Title" value={newAnswer.title} onChange={e => setNewAnswer({...newAnswer, title: e.target.value})} className="w-full p-2 border rounded" required/>
-                                     <textarea placeholder="Text content... Use [NAME] for the operator's name." value={newAnswer.text} onChange={e => setNewAnswer({...newAnswer, text: e.target.value})} className="w-full p-2 border rounded h-32" required />
-                                </div>
-                                <div className="mt-6 flex justify-end gap-4">
-                                    <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 bg-gray-200 rounded">Cancel</button>
-                                    <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">Save</button>
-                                </div>
-                            </form>
-                        </Modal>
-                    )}
-
                     {editingAnswer && (
                         <Modal onClose={() => setEditingAnswer(null)}>
-                            <h3 className="text-lg font-bold mb-4">Edit Automatic Answer</h3>
+                            <h3 className="text-lg font-bold mb-4">{editingAnswer.id ? 'Edit' : 'Add New'} Automatic Answer</h3>
                             <form onSubmit={handleUpdateAnswer}>
                                 <div className="space-y-4">
-                                     <input type="text" placeholder="Title" value={editingAnswer.title} onChange={e => setEditingAnswer({...editingAnswer, title: e.target.value})} className="w-full p-2 border rounded" required/>
-                                     <textarea placeholder="Text content... Use [NAME] for the operator's name." value={editingAnswer.text} onChange={e => setEditingAnswer({...editingAnswer, text: e.target.value})} className="w-full p-2 border rounded h-32" required />
+                                     <input type="text" placeholder="Title" value={editingAnswer.title} onChange={e => handleModalChange('title', e.target.value)} className="w-full p-2 border rounded" required/>
+                                     <hr/>
+                                     <h4 className="font-semibold">Message Blocks</h4>
+                                     {editingAnswer.blocks.map((block, index) => (
+                                        <div key={index} className="flex items-start gap-2">
+                                            <textarea 
+                                                placeholder={index === 0 ? "Main block... Use [NAME] for operator." : "Additional block..."}
+                                                value={block} 
+                                                onChange={e => handleBlockChange(index, e.target.value)} 
+                                                className="w-full p-2 border rounded h-24" 
+                                                required 
+                                            />
+                                             {editingAnswer.blocks.length > 1 && (
+                                                <button type="button" onClick={() => removeBlock(index)} className="px-2 py-1 text-red-500 hover:text-red-700 text-2xl">&times;</button>
+                                             )}
+                                        </div>
+                                     ))}
+                                     <button type="button" onClick={addBlock} className="text-sm text-blue-600 hover:underline">+ Add another block</button>
                                 </div>
                                 <div className="mt-6 flex justify-end gap-4">
                                     <button type="button" onClick={() => setEditingAnswer(null)} className="px-4 py-2 bg-gray-200 rounded">Cancel</button>
-                                    <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">Update</button>
+                                    <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">Save</button>
                                 </div>
                             </form>
                         </Modal>
@@ -892,13 +912,19 @@
                             return record;
                         });
                         
-                        const existingInvoiceNos = new Set(payments.map(p => p['INVOICE No']));
                         const batch = fb.writeBatch(fb.db);
+                        
+                        // NEW: Delete all existing payment records
+                        const paymentsQuery = fb.query(fb.collection(fb.db, "outstandingPayments"));
+                        const oldPaymentsSnap = await fb.getDocs(paymentsQuery);
+                        oldPaymentsSnap.docs.forEach(doc => {
+                            batch.delete(doc.ref);
+                        });
+                        
                         let newRecordsCount = 0;
-
                         records.forEach(record => {
                             const invoiceNo = record['INVOICE No'];
-                            if (invoiceNo && !existingInvoiceNos.has(invoiceNo)) {
+                            if (invoiceNo) { // Import all records from CSV
                                 const amountStr = record['AMMOUNT'] || '0';
                                 const cleanedAmountStr = amountStr.replace(/[^0-9.-]+/g,"");
                                 const amount = parseFloat(cleanedAmountStr) || 0;
@@ -923,12 +949,9 @@
                             }
                         });
 
-                        if (newRecordsCount > 0) {
-                            await batch.commit();
-                            alert(`${newRecordsCount} new records were successfully imported.`);
-                        } else {
-                            alert("No new records found to import. All invoice numbers in the file may already exist.");
-                        }
+                        await batch.commit();
+                        alert(`Import complete! ${oldPaymentsSnap.docs.length} old records deleted and ${newRecordsCount} new records imported.`);
+
                     } catch (error) {
                         console.error("CSV Import Error:", error);
                         alert("An error occurred during the CSV import. Please check the console for details.");
@@ -983,7 +1006,7 @@
                             {!readonly && (
                                 <Fragment>
                                     <label className="px-4 py-2 text-white bg-purple-600 rounded-lg hover:bg-purple-700 cursor-pointer">
-                                        Import CSV
+                                        Import & Replace All
                                         <input type="file" accept=".csv" onChange={handleCsvUpload} className="hidden" />
                                     </label>
                                     <button onClick={() => setShowModal(true)} className="px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700">Add New</button>
